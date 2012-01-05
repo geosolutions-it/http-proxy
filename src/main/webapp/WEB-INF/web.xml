@@ -6,7 +6,7 @@
   <!-- Proxy Servlet -->
   <servlet>
     <servlet-name>HttpProxy</servlet-name>
-    <servlet-class>httpproxy.proxy.HTTPProxy</servlet-class>
+    <servlet-class>it.geosolutions.httpproxy.HTTPProxy</servlet-class>
   </servlet>
   
   <servlet-mapping>
