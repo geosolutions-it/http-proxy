@@ -3,6 +3,7 @@
  */
 package it.geosolutions.httpproxy;
 
+
 /**
  * Simple placeholder class for the proxy information.
  * 
@@ -36,18 +37,23 @@ final class ProxyInfo {
     public String getProxyHost() {
         return proxyHost;
     }
+    
     public void setProxyHost(String proxyHost) {
         this.proxyHost = proxyHost;
     }
+    
     public String getProxyPath() {
         return proxyPath;
     }
+    
     public void setProxyPath(String proxyPath) {
         this.proxyPath = proxyPath;
     }
+    
     public int getProxyPort() {
         return proxyPort;
     }
+    
     public void setProxyPort(int proxyPort) {
         this.proxyPort = proxyPort;
     }

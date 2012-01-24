@@ -2,10 +2,10 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>proxy</groupId>
-	<artifactId>httpProxy</artifactId>
+	<artifactId>http_proxy</artifactId>
 	<packaging>war</packaging>
 	<version>1.0-SNAPSHOT</version>
-	<name>http-+roxy</name>
+	<name>http_proxy</name>
 	<url>http://maven.apache.org</url>
 
 	<build>
@@ -36,7 +36,7 @@
 					<webXml>
 						${basedir}/src/main/webapp/WEB-INF/web.xml
 					</webXml>
-					<warName>httpProxy</warName>
+					<warName>http_proxy</warName>
 				</configuration>
 			</plugin>
 
@@ -45,15 +45,15 @@
 				<artifactId>maven-jetty-plugin</artifactId>
 				<version>6.1.19</version>
 				<configuration>
-					<contextPath>httpProxy</contextPath>
+					<contextPath>http_proxy</contextPath>
 					<connectors>
 						<connector implementation="org.mortbay.jetty.nio.SelectChannelConnector">
 							<port>8082</port>
 							<maxIdleTime>10000</maxIdleTime>
 						</connector>
 					</connectors>
-					<contextPath>httpProxy</contextPath>
-					<webAppSourceDirectory>${project.build.directory}/httpProxy-1.0-SNAPSHOT</webAppSourceDirectory>
+					<contextPath>http_proxy</contextPath>
+					<webAppSourceDirectory>${project.build.directory}/http_proxy-1.0-SNAPSHOT</webAppSourceDirectory>
 				</configuration>
 			</plugin>
 
