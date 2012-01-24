@@ -839,21 +839,28 @@ public class HTTPProxy extends HttpServlet {
 
     	if (locator.getProtocol().equals("http") || 
     			locator.getProtocol().equals("https")) {
-            boolean hostnameOk = false, mimetypeOk = (contentType != null ? false : true), reqtypeOk = false;
+    		
+    		int hostsSize = proxyConfig.getHostnameWhitelist().size();
+    		int mimeSize = proxyConfig.getMimetypeWhitelist().size();
+    		int reqTypeSize = proxyConfig.getReqtypeWhitelist().size();
+    		
+            boolean hostnameOk = hostsSize == 0 ? true : false;
+            boolean mimetypeOk = ((contentType == null || mimeSize == 0) ? true : false);
+            boolean reqtypeOk = reqTypeSize == 0 ? true : false;
             
             // ///////////////////////////////////////////////////////
             // Check hostname and mimetype as appropriate to mode 
             // ///////////////////////////////////////////////////////
             
-            if (proxyConfig.getHostnameWhitelist().size() > 0) {
+            if (hostsSize > 0) {
                 hostnameOk = checkHostnamePermission(locator);
             }
             
-            if (contentType != null && proxyConfig.getMimetypeWhitelist().size() > 0) {
+            if (contentType != null && mimeSize > 0) {
                 mimetypeOk = checkContentTypePermission(contentType);
             }
             
-            if (proxyConfig.getReqtypeWhitelist().size() > 0) {
+            if (reqTypeSize > 0) {
             	reqtypeOk = checkRequestTypePermission(locator);
             }
             

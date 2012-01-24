@@ -93,13 +93,16 @@ final class Utils {
 	 */
     static final LinkedHashSet<String> parseWhiteList(String property){		
 		LinkedHashSet<String> set = new LinkedHashSet<String>();
-	    String[] array = property.split(",");
-	    
-	    for(int i=0; i< array.length; i++){
-	    	String element = array[i];
-	    	if(element != null)
-	    		set.add(element);
-	    }
+		
+		if(property != null){
+		    String[] array = property.split(",");
+		    
+		    for(int i=0; i< array.length; i++){
+		    	String element = array[i];
+		    	if(element != null)
+		    		set.add(element);
+		    }
+		}
 	    
 	    return set;
 	}
