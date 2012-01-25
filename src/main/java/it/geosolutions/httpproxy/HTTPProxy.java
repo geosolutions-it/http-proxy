@@ -100,6 +100,8 @@ private HttpClient httpClient;
 
 private ProxyConfig proxyConfig;
 
+private List<ProxyCallback> callbacks;
+
 /**
  * Initialize the <code>ProxyServlet</code>
  * 
@@ -158,7 +160,30 @@ public void init(ServletConfig servletConfig) throws ServletException {
 
     connectionManager.setParams(params);
     httpClient = new HttpClient(connectionManager);
+    
+    // setup the callbacks (in the future this will be a pluggable lookup)
+    callbacks = new ArrayList<ProxyCallback>();
+    callbacks.add(new MimeTypeChecker(proxyConfig));
 }
+
+void onInit(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    for (ProxyCallback  callback : callbacks) {
+        callback.onRequest(request, response);
+    }
+}
+
+void onRemoteResponse(HttpMethod method) throws IOException {
+    for (ProxyCallback  callback : callbacks) {
+        callback.onRemoteResponse(method);
+    }
+}
+
+void onFinish() throws IOException {
+    for (ProxyCallback  callback : callbacks) {
+        callback.onFinish();
+    }
+}
+
 
 /**
  * Performs an HTTP GET request
@@ -172,58 +197,66 @@ public void doGet(HttpServletRequest httpServletRequest,
         HttpServletResponse httpServletResponse) throws IOException,
         ServletException {
 
-    URL url = null;
-    String user = null, password = null;
-
-    Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
-
-    for (Object anEntrySet : entrySet) {
-        Map.Entry header = (Map.Entry) anEntrySet;
-        String key = (String) header.getKey();
-        String value = ((String[]) header.getValue())[0];
-
-        if ("user".equals(key)) {
-            user = value;
-        } else if ("password".equals(key)) {
-            password = value;
-        } else if ("url".equals(key)) {
-            url = new URL(value);
+    try {
+        URL url = null;
+        String user = null, password = null;
+    
+        Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+        
+        onInit(httpServletRequest, httpServletResponse);
+    
+        for (Object anEntrySet : entrySet) {
+            Map.Entry header = (Map.Entry) anEntrySet;
+            String key = (String) header.getKey();
+            String value = ((String[]) header.getValue())[0];
+    
+            if ("user".equals(key)) {
+                user = value;
+            } else if ("password".equals(key)) {
+                password = value;
+            } else if ("url".equals(key)) {
+                url = new URL(value);
+            }
         }
-    }
-
-    if (url != null) {
-
-        // ///////////////////////////////////////////////////////
-        // Check if this request is permitted to be forwarded
-        // ///////////////////////////////////////////////////////
-
-        if (checkPermission(url, httpServletRequest.getContentType()) != true) {
-            httpServletResponse
-                    .sendError(HttpServletResponse.SC_FORBIDDEN,
-                            "Request for not permitted content type, hostname or request type");
-        } else {
-
-            // //////////////////////////////
-            // Create a GET request
-            // //////////////////////////////
-
-            GetMethod getMethodProxyRequest = new GetMethod(
-                    url.toExternalForm());
-
-            // //////////////////////////////
-            // Forward the request headers
-            // //////////////////////////////
-
-            final ProxyInfo proxyInfo = setProxyRequestHeaders(url,
-                    httpServletRequest, getMethodProxyRequest);
-
-            // //////////////////////////////
-            // Execute the proxy request
-            // //////////////////////////////
-
-            this.executeProxyRequest(getMethodProxyRequest, httpServletRequest,
-                    httpServletResponse, user, password, proxyInfo);
+    
+        if (url != null) {
+    
+            // ///////////////////////////////////////////////////////
+            // Check if this request is permitted to be forwarded
+            // ///////////////////////////////////////////////////////
+    
+            if (checkPermission(url, httpServletRequest.getContentType()) != true) {
+                httpServletResponse
+                        .sendError(HttpServletResponse.SC_FORBIDDEN,
+                                "Request for not permitted content type, hostname or request type");
+            } else {
+    
+                // //////////////////////////////
+                // Create a GET request
+                // //////////////////////////////
+    
+                GetMethod getMethodProxyRequest = new GetMethod(
+                        url.toExternalForm());
+    
+                // //////////////////////////////
+                // Forward the request headers
+                // //////////////////////////////
+    
+                final ProxyInfo proxyInfo = setProxyRequestHeaders(url,
+                        httpServletRequest, getMethodProxyRequest);
+    
+                // //////////////////////////////
+                // Execute the proxy request
+                // //////////////////////////////
+    
+                this.executeProxyRequest(getMethodProxyRequest, httpServletRequest,
+                        httpServletResponse, user, password, proxyInfo);
+            }
         }
+    } catch(HttpErrorException ex) {
+        httpServletResponse.sendError(ex.getCode(), ex.getMessage());
+    } finally {
+        onFinish();
     }
 }
 
@@ -631,7 +664,8 @@ private void executeProxyRequest(HttpMethod httpMethodProxyRequest,
 
         int intProxyResponseCode = httpClient
                 .executeMethod(httpMethodProxyRequest);
-
+        
+        
         // ////////////////////////////////////////////////////////////////////////////////
         // Check if the proxy response is a redirect
         // The following code is adapted from
