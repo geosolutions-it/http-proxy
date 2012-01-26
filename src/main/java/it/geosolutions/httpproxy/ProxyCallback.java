@@ -20,6 +20,7 @@
 package it.geosolutions.httpproxy;
 
 import java.io.IOException;
+import java.net.URL;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -27,17 +28,19 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * A pluggable callback that can perform checks or alter the request
+ * A pluggable callback that can perform checks or alter the request.
+ * 
+ * @author Andrea Aime - GeoSolutions
  */
 public interface ProxyCallback {
 
     /**
-     * First to be called, can be used to initialize the callback status and disallow certain
-     * requests by throwing an {@link HttpErrorException}
+     * First to be called, can be used to initialize the callback status and disallow certain requests by throwing an {@link HttpErrorException}
      * 
      * @throws IOException
      */
-    void onRequest(HttpServletRequest request, HttpServletResponse response) throws IOException;
+    void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
+            throws IOException;
 
     /**
      * Second to be called, can be used to check the remote server response

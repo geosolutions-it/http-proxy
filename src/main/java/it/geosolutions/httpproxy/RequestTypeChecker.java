@@ -21,7 +21,10 @@ package it.geosolutions.httpproxy;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,19 +32,18 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * MimeTypeChecker class for the mimetype check.
+ * RequestTypeChecker class for request type check.
  * 
- * @author Andrea Aime - GeoSolutions
- * 
+ * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
-public class MimeTypeChecker implements ProxyCallback {
+public class RequestTypeChecker implements ProxyCallback {
 
     ProxyConfig config;
 
     /**
      * @param config
      */
-    public MimeTypeChecker(ProxyConfig config) {
+    public RequestTypeChecker(ProxyConfig config) {
         this.config = config;
     }
 
@@ -52,6 +54,38 @@ public class MimeTypeChecker implements ProxyCallback {
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
+        Set<String> reqTypes = config.getReqtypeWhitelist();
+
+        // //////////////////////////////////////
+        // Check off the request type
+        // provided vs. permitted request types
+        // //////////////////////////////////////
+
+        if (reqTypes != null && reqTypes.size() > 0) {
+            Iterator<String> iterator = reqTypes.iterator();
+
+            String urlExtForm = url.toExternalForm();
+            if (urlExtForm.indexOf("?") != -1) {
+                urlExtForm = urlExtForm.split("\\?")[1];
+            }
+
+            boolean check = false;
+            while (iterator.hasNext()) {
+                String regex = iterator.next();
+
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(urlExtForm);
+
+                if (matcher.matches()) {
+                    check = true;
+                    break;
+                }
+            }
+
+            if (!check)
+                throw new HttpErrorException(403, "Request Type"
+                        + " is not among the ones allowed for this proxy");
+        }
     }
 
     /*
@@ -60,22 +94,6 @@ public class MimeTypeChecker implements ProxyCallback {
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
     public void onRemoteResponse(HttpMethod method) throws IOException {
-        Set<String> mimeTypes = config.getMimetypeWhitelist();
-
-        if (mimeTypes != null && mimeTypes.size() > 0) {
-            String contentType = method.getResponseHeader("Content-type").getValue();
-
-            // //////////////////////////////////
-            // Trim off extraneous information
-            // //////////////////////////////////
-
-            String firstType = contentType.split(";")[0];
-
-            if (!mimeTypes.contains(firstType)) {
-                throw new HttpErrorException(403, "Content-type " + firstType
-                        + " is not among the ones allowed for this proxy");
-            }
-        }
     }
 
     /*

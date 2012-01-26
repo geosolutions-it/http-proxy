@@ -26,7 +26,7 @@
 				<configuration>
 					<skip>true</skip>
 				</configuration>
-			</plugin>
+			</plugin> 
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -76,13 +76,6 @@
 			<version>1.2.16</version>
 		</dependency>
 
-		<!-- Dom4J dependencies -->
-		<dependency>
-			<groupId>dom4j</groupId>
-			<artifactId>dom4j</artifactId>
-			<version>1.6.1</version>
-		</dependency>
-
 		<!-- Commons -->
 		<dependency>
 			<groupId>commons-fileupload</groupId>
@@ -94,6 +87,13 @@
 			<groupId>commons-httpclient</groupId>
 			<artifactId>commons-httpclient</artifactId>
 			<version>3.1</version>
+		</dependency>
+		
+	    <dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.1</version>
+			<scope>test</scope>
 		</dependency>
 
 		<dependency>
@@ -109,20 +109,14 @@
 			<version>6.1.19</version>
 			<scope>test</scope>
 		</dependency>
-		
-		<dependency>
-			<groupId>org.mortbay.jetty</groupId>
-			<artifactId>jsp-2.0</artifactId>
-			<version>6.1.19</version>
-			<type>pom</type>
-			<scope>test</scope>
-		</dependency>
 
-    <dependency>
-      <groupId>httpunit</groupId>
-      <artifactId>httpunit</artifactId>
-      <version>1.7</version>
-    </dependency>
+        <dependency> 
+        	<groupId>org.mortbay.jetty</groupId> 
+        	<artifactId>jetty-servlet-tester</artifactId> 
+        	<version>6.1.5</version> 
+        	<scope>test</scope> 
+        </dependency>
+
 	</dependencies>
 
 	<repositories>
@@ -144,42 +138,6 @@
 			<id>central</id>
 			<name>Maven Repository Switchboard</name>
 			<url>http://repo1.maven.org/maven2</url>
-		</repository>
-
-		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>Springframework</id>
-			<name>Maven Repository Switchboard</name>
-			<url>http://repo1.maven.org/maven2</url>
-		</repository>
-
-		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>vividsolutions</id>
-			<name>jts Repository</name>
-			<url>http://maven.geotools.fr/repository</url>
-		</repository>
-
-		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>maven-restlet</id>
-			<name>Public online Restlet repository</name>
-			<url>http://maven.restlet.org</url>
-		</repository>
-
-		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>noelios</id>
-			<name>Public online Noelios repository</name>
-			<url>http://maven.noelios.com</url>
 		</repository>
 
 		<repository>

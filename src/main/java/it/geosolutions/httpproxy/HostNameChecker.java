@@ -29,19 +29,18 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * MimeTypeChecker class for the mimetype check.
+ * HostNameChecker class for hostname check.
  * 
- * @author Andrea Aime - GeoSolutions
- * 
+ * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
-public class MimeTypeChecker implements ProxyCallback {
+public class HostNameChecker implements ProxyCallback {
 
     ProxyConfig config;
 
     /**
      * @param config
      */
-    public MimeTypeChecker(ProxyConfig config) {
+    public HostNameChecker(ProxyConfig config) {
         this.config = config;
     }
 
@@ -52,6 +51,20 @@ public class MimeTypeChecker implements ProxyCallback {
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
+        Set<String> hostNames = config.getHostnameWhitelist();
+
+        // ////////////////////////////////
+        // Check the whitelist of hosts
+        // ////////////////////////////////
+
+        if (hostNames != null && hostNames.size() > 0) {
+            String hostName = url.getHost();
+
+            if (!hostNames.contains(hostName)) {
+                throw new HttpErrorException(403, "Host Name " + hostName
+                        + " is not among the ones allowed for this proxy");
+            }
+        }
     }
 
     /*
@@ -60,22 +73,6 @@ public class MimeTypeChecker implements ProxyCallback {
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
     public void onRemoteResponse(HttpMethod method) throws IOException {
-        Set<String> mimeTypes = config.getMimetypeWhitelist();
-
-        if (mimeTypes != null && mimeTypes.size() > 0) {
-            String contentType = method.getResponseHeader("Content-type").getValue();
-
-            // //////////////////////////////////
-            // Trim off extraneous information
-            // //////////////////////////////////
-
-            String firstType = contentType.split(";")[0];
-
-            if (!mimeTypes.contains(firstType)) {
-                throw new HttpErrorException(403, "Content-type " + firstType
-                        + " is not among the ones allowed for this proxy");
-            }
-        }
     }
 
     /*

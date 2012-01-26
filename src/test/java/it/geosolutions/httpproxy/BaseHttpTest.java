@@ -19,42 +19,32 @@
  */
 package it.geosolutions.httpproxy;
 
-import java.io.IOException;
+import java.util.logging.Logger;
+
+import junit.framework.TestCase;
 
 /**
- * Used to force the proxy response to contain a certain status code and error message
+ * BaseHttpTest abstract class.
  * 
- * @author Andrea Aime - GeoSolutions
+ * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * 
  */
-public class HttpErrorException extends IOException {
+public abstract class BaseHttpTest extends TestCase {
 
-    /**
-     * Serialization UID.
-     */
-    private static final long serialVersionUID = 2802909311238947185L;
+    protected final Logger LOGGER;
 
-    private int code;
-
-    private String message;
-
-    public HttpErrorException(int code, String message) {
-        this.code = code;
-        this.message = message;
+    public BaseHttpTest() {
+        LOGGER = Logger.getLogger(getClass().toString());
     }
 
-    /**
-     * The response status code
-     * 
-     * @return
-     */
-    public int getCode() {
-        return code;
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
     }
 
-    /**
-     * The response message
-     */
-    public String getMessage() {
-        return message;
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
+
 }
