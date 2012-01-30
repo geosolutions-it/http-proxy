@@ -150,6 +150,14 @@ final class ProxyConfig {
             s = props.getProperty("reqtypeWhitelist.csw");
             if (s != null)
                 rt.add(s);
+            
+            s = props.getProperty("reqtypeWhitelist.featureinfo");
+            if (s != null)
+                rt.add(s);
+            
+            s = props.getProperty("reqtypeWhitelist.fdh");
+            if (s != null)
+                rt.add(s);
 
             this.setReqtypeWhitelist(rt);
 
@@ -339,6 +347,14 @@ final class ProxyConfig {
                 rt.add(s);
 
             s = props.getProperty("reqtypeWhitelist.csw");
+            if (s != null)
+                rt.add(s);
+            
+            s = props.getProperty("reqtypeWhitelist.featureinfo");
+            if (s != null)
+                rt.add(s);
+            
+            s = props.getProperty("reqtypeWhitelist.fdh");
             if (s != null)
                 rt.add(s);
 
