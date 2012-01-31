@@ -22,6 +22,7 @@ package it.geosolutions.httpproxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -70,6 +71,13 @@ import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
  */
 public class HTTPProxy extends HttpServlet {
 
+	public enum Method {
+		GET,
+		POST,
+		PUT,
+		DELETE
+	}
+	
     /**
      * Serialization UID.
      */
@@ -180,58 +188,8 @@ public class HTTPProxy extends HttpServlet {
     public void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
             throws IOException, ServletException {
 
-        try {
-
-            URL url = null;
-            String user = null, password = null;
-
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
-
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
-
-                if ("user".equals(key)) {
-                    user = value;
-                } else if ("password".equals(key)) {
-                    password = value;
-                } else if ("url".equals(key)) {
-                    url = new URL(value);
-                }
-            }
-
-            if (url != null) {
-
-                onInit(httpServletRequest, httpServletResponse, url);
-
-                // //////////////////////////////
-                // Create a GET request
-                // //////////////////////////////
-
-                GetMethod getMethodProxyRequest = new GetMethod(url.toExternalForm());
-
-                // //////////////////////////////
-                // Forward the request headers
-                // //////////////////////////////
-
-                final ProxyInfo proxyInfo = setProxyRequestHeaders(url, httpServletRequest,
-                        getMethodProxyRequest);
-
-                // //////////////////////////////
-                // Execute the proxy request
-                // //////////////////////////////
-
-                this.executeProxyRequest(getMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password, proxyInfo);
-
-            }
-
-        } catch (HttpErrorException ex) {
-            httpServletResponse.sendError(ex.getCode(), ex.getMessage());
-        } finally {
-            onFinish();
-        }
+        performHTTPMethod(httpServletRequest, httpServletResponse, Method.GET);
+    
     }
 
     /**
@@ -243,68 +201,8 @@ public class HTTPProxy extends HttpServlet {
     public void doPost(HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) throws IOException, ServletException {
 
-        try {
+    	performHTTPMethod(httpServletRequest, httpServletResponse, Method.POST);
 
-            URL url = null;
-            String user = null, password = null;
-
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
-
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
-
-                if ("user".equals(key)) {
-                    user = value;
-                } else if ("password".equals(key)) {
-                    password = value;
-                } else if ("url".equals(key)) {
-                    url = new URL(value);
-                }
-            }
-
-            if (url != null) {
-
-                onInit(httpServletRequest, httpServletResponse, url);
-
-                // /////////////////////////////////
-                // Create a standard POST request
-                // /////////////////////////////////
-
-                PostMethod postMethodProxyRequest = new PostMethod(url.toExternalForm());
-
-                // /////////////////////////////////
-                // Forward the request headers
-                // /////////////////////////////////
-
-                final ProxyInfo proxyInfo = setProxyRequestHeaders(url, httpServletRequest,
-                        postMethodProxyRequest);
-
-                // //////////////////////////////////////////////////
-                // Check if this is a mulitpart (file upload) POST
-                // //////////////////////////////////////////////////
-
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
-                    this.handleMultipart(postMethodProxyRequest, httpServletRequest);
-                } else {
-                    this.handleStandard(postMethodProxyRequest, httpServletRequest);
-                }
-
-                // ///////////////////////////////
-                // Execute the proxy request
-                // ///////////////////////////////
-
-                this.executeProxyRequest(postMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password, proxyInfo);
-
-            }
-
-        } catch (HttpErrorException ex) {
-            httpServletResponse.sendError(ex.getCode(), ex.getMessage());
-        } finally {
-            onFinish();
-        }
     }
 
     /**
@@ -316,68 +214,7 @@ public class HTTPProxy extends HttpServlet {
     public void doPut(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
             throws IOException, ServletException {
 
-        try {
-
-            URL url = null;
-            String user = null, password = null;
-
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
-
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
-
-                if ("user".equals(key)) {
-                    user = value;
-                } else if ("password".equals(key)) {
-                    password = value;
-                } else if ("url".equals(key)) {
-                    url = new URL(value);
-                }
-            }
-
-            if (url != null) {
-
-                onInit(httpServletRequest, httpServletResponse, url);
-
-                // ////////////////////////////////
-                // Create a standard PUT request
-                // ////////////////////////////////
-
-                PutMethod putMethodProxyRequest = new PutMethod(url.toExternalForm());
-
-                // ////////////////////////////////
-                // Forward the request headers
-                // ////////////////////////////////
-
-                final ProxyInfo proxyInfo = setProxyRequestHeaders(url, httpServletRequest,
-                        putMethodProxyRequest);
-
-                // //////////////////////////////////////////////////
-                // Check if this is a mulitpart (file upload) PUT
-                // //////////////////////////////////////////////////
-
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
-                    this.handleMultipart(putMethodProxyRequest, httpServletRequest);
-                } else {
-                    this.handleStandard(putMethodProxyRequest, httpServletRequest);
-                }
-
-                // ////////////////////////////////
-                // Execute the proxy request
-                // ////////////////////////////////
-
-                this.executeProxyRequest(putMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password, proxyInfo);
-
-            }
-
-        } catch (HttpErrorException ex) {
-            httpServletResponse.sendError(ex.getCode(), ex.getMessage());
-        } finally {
-            onFinish();
-        }
+    	performHTTPMethod(httpServletRequest, httpServletResponse, Method.PUT);
 
     }
 
@@ -390,57 +227,8 @@ public class HTTPProxy extends HttpServlet {
     public void doDelete(HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) throws IOException, ServletException {
 
-        try {
-            URL url = null;
-            String user = null, password = null;
+        performHTTPMethod(httpServletRequest, httpServletResponse, Method.DELETE);
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
-
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
-
-                if ("user".equals(key)) {
-                    user = value;
-                } else if ("password".equals(key)) {
-                    password = value;
-                } else if ("url".equals(key)) {
-                    url = new URL(value);
-                }
-            }
-
-            if (url != null) {
-
-                onInit(httpServletRequest, httpServletResponse, url);
-
-                // ////////////////////////////////
-                // Create a standard DELETE request
-                // ////////////////////////////////
-
-                DeleteMethod deleteMethodProxyRequest = new DeleteMethod(url.toExternalForm());
-
-                // ////////////////////////////////
-                // Forward the request headers
-                // ////////////////////////////////
-
-                final ProxyInfo proxyInfo = setProxyRequestHeaders(url, httpServletRequest,
-                        deleteMethodProxyRequest);
-
-                // ////////////////////////////////
-                // Execute the proxy request
-                // ////////////////////////////////
-
-                this.executeProxyRequest(deleteMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password, proxyInfo);
-
-            }
-
-        } catch (HttpErrorException ex) {
-            httpServletResponse.sendError(ex.getCode(), ex.getMessage());
-        } finally {
-            onFinish();
-        }
     }
 
     /**
@@ -810,4 +598,110 @@ public class HTTPProxy extends HttpServlet {
         return maxFileUploadSize;
     }
 
+    /**
+	 * @param httpServletRequest
+	 * @param httpServletResponse
+	 * @param method 
+	 * @throws MalformedURLException
+	 * @throws IOException
+	 * @throws ServletException
+	 */
+	private void performHTTPMethod(HttpServletRequest httpServletRequest,
+			HttpServletResponse httpServletResponse, Method method)
+			throws MalformedURLException, IOException, ServletException {
+		try {
+
+            URL url = null;
+            String user = null, password = null;
+
+            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+
+            for (Object anEntrySet : entrySet) {
+                Map.Entry header = (Map.Entry) anEntrySet;
+                String key = (String) header.getKey();
+                String value = ((String[]) header.getValue())[0];
+
+                if ("user".equals(key)) {
+                    user = value;
+                } else if ("password".equals(key)) {
+                    password = value;
+                } else if ("url".equals(key)) {
+                    url = new URL(value);
+                }
+            }
+
+            if (url != null) {
+
+                onInit(httpServletRequest, httpServletResponse, url);
+
+                HttpMethod methodProxyRequest = null;
+                
+                switch (method) {
+                case GET:
+                    // //////////////////////////////
+                    // Create a GET request
+                    // //////////////////////////////
+                    
+                	methodProxyRequest = new GetMethod(url.toExternalForm());
+                	break;
+                case POST:
+                	// /////////////////////////////////
+                    // Create a standard POST request
+                    // /////////////////////////////////
+
+                	methodProxyRequest = new PostMethod(url.toExternalForm());
+                    break;
+                case PUT:
+                	// ////////////////////////////////
+                    // Create a standard PUT request
+                    // ////////////////////////////////
+
+                	methodProxyRequest = new PutMethod(url.toExternalForm());
+                    break;
+                case DELETE:
+                	// ////////////////////////////////
+                    // Create a standard DELETE request
+                    // ////////////////////////////////
+
+                	methodProxyRequest = new DeleteMethod(url.toExternalForm());
+                    break;
+                }
+
+				// //////////////////////////////
+                // Forward the request headers
+                // //////////////////////////////
+
+                final ProxyInfo proxyInfo = setProxyRequestHeaders(url, httpServletRequest,
+                        methodProxyRequest);
+
+                // //////////////////////////////////////////////////
+                // Check if this is a mulitpart (file upload)
+                // //////////////////////////////////////////////////
+
+                switch (method) {
+                case POST:
+                case PUT:
+                	if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
+                		this.handleMultipart((EntityEnclosingMethod) methodProxyRequest, httpServletRequest);
+                	} else {
+                		this.handleStandard((EntityEnclosingMethod) methodProxyRequest, httpServletRequest);
+                	}
+                break;
+                }
+                
+                // //////////////////////////////
+                // Execute the proxy request
+                // //////////////////////////////
+
+                this.executeProxyRequest(methodProxyRequest, httpServletRequest,
+                        httpServletResponse, user, password, proxyInfo);
+
+            }
+
+        } catch (HttpErrorException ex) {
+            httpServletResponse.sendError(ex.getCode(), ex.getMessage());
+        } finally {
+            onFinish();
+        }
+	}
 }
