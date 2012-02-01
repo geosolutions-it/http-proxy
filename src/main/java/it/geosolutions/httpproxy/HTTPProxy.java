@@ -534,6 +534,11 @@ public class HTTPProxy extends HttpServlet {
         // names sent by the client.
         // ////////////////////////////////////////
 
+        /**
+         * Specific Extension for CUSTOM
+         */
+        boolean isXCustomUserIDHeaderPresent = false;
+        
         Enumeration enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
 
         while (enumerationOfHeaderNames.hasMoreElements()) {
@@ -542,6 +547,12 @@ public class HTTPProxy extends HttpServlet {
             if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME))
                 continue;
 
+            /**
+             * Specific Extension for CUSTOM
+             */
+            if (stringHeaderName.equalsIgnoreCase("X-CUSTOM-USERID"))
+            	isXCustomUserIDHeaderPresent = true;
+            
             // ////////////////////////////////////////////////////////////////////////
             // As per the Java Servlet API 2.5 documentation:
             // Some headers, such as Accept-Language can be sent by clients
@@ -588,6 +599,14 @@ public class HTTPProxy extends HttpServlet {
             }
         }
 
+        /**
+         * Specific Extension for CUSTOM
+         */
+        if (!isXCustomUserIDHeaderPresent) {
+        	Header header = new Header("X-CUSTOM-USERID", "ANONYM");
+        	httpMethodProxyRequest.setRequestHeader(header);
+        }
+        
         return proxyInfo;
     }
 
@@ -612,6 +631,8 @@ public class HTTPProxy extends HttpServlet {
 		try {
 
             URL url = null;
+            String urlValue = null;
+            String urlParams = "";
             String user = null, password = null;
 
             Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
@@ -626,11 +647,19 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    urlValue = value;
+                } else {
+                	urlParams += key + "=" + value + "&"; 
                 }
             }
 
-            if (url != null) {
+            if (urlValue != null) {
+            	
+            	urlValue = urlValue.indexOf("?") > 0 ? 
+            			urlValue + urlParams :
+            			urlValue + "?" + urlParams;
+            	
+            	url = new URL(urlValue);
 
                 onInit(httpServletRequest, httpServletResponse, url);
 

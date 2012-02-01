@@ -22,6 +22,7 @@ package it.geosolutions.httpproxy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
@@ -138,28 +139,7 @@ final class ProxyConfig {
             // Read various request type properties
             // ////////////////////////////////////////
 
-            Set<String> rt = new HashSet<String>();
-            String s = props.getProperty("reqtypeWhitelist.capabilities");
-            if (s != null)
-                rt.add(s);
-
-            s = props.getProperty("reqtypeWhitelist.geostore");
-            if (s != null)
-                rt.add(s);
-
-            s = props.getProperty("reqtypeWhitelist.csw");
-            if (s != null)
-                rt.add(s);
-            
-            s = props.getProperty("reqtypeWhitelist.featureinfo");
-            if (s != null)
-                rt.add(s);
-            
-            s = props.getProperty("reqtypeWhitelist.fdh");
-            if (s != null)
-                rt.add(s);
-
-            this.setReqtypeWhitelist(rt);
+            getReqtypeWhitelist();
 
             // /////////////////////////////////////////////////
             // Load connection manager configuration from
@@ -337,7 +317,7 @@ final class ProxyConfig {
         Properties props = propertiesLoader();
 
         if (props != null) {
-            Set<String> rt = new HashSet<String>();
+            /*Set<String> rt = new HashSet<String>();
             String s = props.getProperty("reqtypeWhitelist.capabilities");
             if (s != null)
                 rt.add(s);
@@ -358,6 +338,21 @@ final class ProxyConfig {
             if (s != null)
                 rt.add(s);
 
+            this.setReqtypeWhitelist(rt);*/
+        	
+        	Set<String> rt = new HashSet<String>();
+            String key = "";
+            String value = "";
+            for (Map.Entry<Object, Object> propItem : props.entrySet())
+            {
+                key = (String) propItem.getKey();
+                value = (String) propItem.getValue();
+                
+                if (key.startsWith("reqtypeWhitelist")) {
+                	rt.add(value);
+                }
+            }
+            
             this.setReqtypeWhitelist(rt);
         }
 
