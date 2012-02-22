@@ -19,9 +19,9 @@
  */
 package it.geosolutions.httpproxy;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -602,6 +602,9 @@ public class HTTPProxy extends HttpServlet {
 
         httpMethodProxyRequest.setFollowRedirects(false);
 
+        InputStream inputStreamServerResponse = null;
+        ByteArrayOutputStream baos = null;
+        
         try {
 
             // //////////////////////////
@@ -693,6 +696,8 @@ public class HTTPProxy extends HttpServlet {
                     continue;
                 else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
                     continue;
+//                else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_WWW_AUTHENTICATE))
+//                    continue;                
                 else
                     httpServletResponse.setHeader(header.getName(), header.getValue());
             }
@@ -700,27 +705,48 @@ public class HTTPProxy extends HttpServlet {
             // ///////////////////////////////////
             // Send the content to the client
             // ///////////////////////////////////
-
-            InputStream inputStreamServerResponse = httpMethodProxyRequest
-                    .getResponseBodyAsStream();
-            OutputStream outputStreamClientResponse = httpServletResponse.getOutputStream();
-
+            
+            inputStreamServerResponse = httpMethodProxyRequest
+            		.getResponseBodyAsStream();
+            
+            byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
+            
+            baos = new ByteArrayOutputStream(b.length);
+            
             int read = 0;
-            while ((read = inputStreamServerResponse.read()) > 0) {
-                if (Utils.escapeHtmlFull(read) > 0) {
-                    outputStreamClientResponse.write(read);
-                }
-            }
-
-            inputStreamServerResponse.close();
-            outputStreamClientResponse.write('\n');
-            outputStreamClientResponse.flush();
-            outputStreamClientResponse.close();
-
+		    while((read = inputStreamServerResponse.read(b)) > 0){ 
+		      	baos.write(b, 0, read);
+		        baos.flush();
+		    }
+	            
+		    baos.writeTo(httpServletResponse.getOutputStream());
+            
         } catch (HttpException e) {
             if (LOGGER.isLoggable(Level.SEVERE))
                 LOGGER.log(Level.SEVERE, "Error executing HTTP method ", e);
         } finally {
+			try {
+	        	if(inputStreamServerResponse != null)
+	        		inputStreamServerResponse.close();
+			} catch (IOException e) {
+				if (LOGGER.isLoggable(Level.SEVERE))
+					LOGGER.log(Level.SEVERE,
+							"Error closing request input stream ", e);
+				throw new ServletException(e.getMessage());
+			}
+			
+			try {
+	        	if(baos != null){
+	        		baos.flush();
+	        		baos.close();
+	        	}
+			} catch (IOException e) {
+				if (LOGGER.isLoggable(Level.SEVERE))
+					LOGGER.log(Level.SEVERE,
+							"Error closing response stream ", e);
+				throw new ServletException(e.getMessage());
+			}
+        	
             httpMethodProxyRequest.releaseConnection();
         }
     }

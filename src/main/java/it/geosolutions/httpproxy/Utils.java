@@ -64,6 +64,8 @@ final class Utils {
     static final String HTTP_HEADER_CONTENT_ENCODING = "content-encoding";
 
     static final String HTTP_HEADER_TRANSFER_ENCODING = "transfer-encoding";
+    
+    static final String HTTP_HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
 
     static final int DEFAULT_PROXY_PORT = 80;
 

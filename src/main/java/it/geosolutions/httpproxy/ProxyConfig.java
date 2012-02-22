@@ -92,8 +92,10 @@ final class ProxyConfig {
      * The maximum connections available per host
      */
     private int defaultMaxConnectionsPerHost = 6;
+    
+    private int defaultStreamByteSize = 1024;
 
-    /**
+	/**
      * @param context
      * @param propertiesFilePath
      */
@@ -161,12 +163,21 @@ final class ProxyConfig {
 
             this.setReqtypeWhitelist(rt);
 
-            // /////////////////////////////////////////////////
-            // Load connection manager configuration from
-            // properties file.
-            // /////////////////////////////////////////////////
-
             try {
+                // /////////////////////////////////////////////////
+                // Load byte size configuration from
+                // properties file.
+                // /////////////////////////////////////////////////
+            	
+                String bytesSize = props.getProperty("defaultStreamByteSize");
+                this.setDefaultStreamByteSize(bytesSize != null ? Integer.parseInt(bytesSize) : 
+                	this.defaultStreamByteSize);
+                
+                // /////////////////////////////////////////////////
+                // Load connection manager configuration from
+                // properties file.
+                // /////////////////////////////////////////////////
+                
                 String timeout = props.getProperty("timeout");
                 this.setSoTimeout(timeout != null ? Integer.parseInt(timeout) : this.soTimeout);
 
@@ -191,6 +202,7 @@ final class ProxyConfig {
                 this.setConnectionTimeout(this.connectionTimeout);
                 this.setMaxTotalConnections(this.maxTotalConnections);
                 this.setMaxTotalConnections(this.defaultMaxConnectionsPerHost);
+                this.setDefaultStreamByteSize(this.defaultStreamByteSize);
             }
         }
     }
@@ -442,5 +454,19 @@ final class ProxyConfig {
     public void setPropertiesFilePath(String propertiesFilePath) {
         this.propertiesFilePath = propertiesFilePath;
     }
+    
+    /**
+	 * @return the defaultStreamByteSize
+	 */
+	public int getDefaultStreamByteSize() {
+		return defaultStreamByteSize;
+	}
+
+	/**
+	 * @param defaultStreamByteSize the defaultStreamByteSize to set
+	 */
+	public void setDefaultStreamByteSize(int defaultStreamByteSize) {
+		this.defaultStreamByteSize = defaultStreamByteSize;
+	}
 
 }
