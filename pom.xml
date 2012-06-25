@@ -10,7 +10,7 @@
     
 	<!-- The SCM -->
 	<scm>
-		<connection>scm:git:[fetch=]https://github.com/geosolutions-it/http-proxy.git[push=]https://github.com/geosolutions-it/http-proxy.git</connection>
+		<connection>scm:git:[fetch=]git@github.com:geosolutions-it/http-proxy.git[push=]git@github.com:geosolutions-it/http-proxy.git</connection>
 		<tag>master</tag>
 		<url>https://github.com/geosolutions-it/http-proxy</url>
 	</scm>
