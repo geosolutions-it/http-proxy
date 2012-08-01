@@ -100,7 +100,6 @@ final class ProxyConfig {
      * @param propertiesFilePath
      */
     public ProxyConfig(ServletContext context, String propertiesFilePath) {
-        super();
         this.context = context;
         this.propertiesFilePath = propertiesFilePath;
 

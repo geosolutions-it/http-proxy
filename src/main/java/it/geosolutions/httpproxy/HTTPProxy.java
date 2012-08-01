@@ -575,11 +575,7 @@ public class HTTPProxy extends HttpServlet {
      */
     private void handleStandard(EntityEnclosingMethod methodProxyRequest,
             HttpServletRequest httpServletRequest) throws IOException {
-        try {
             methodProxyRequest.setRequestBody(httpServletRequest.getInputStream());
-        } catch (IOException e) {
-            throw new IOException(e);
-        }
     }
 
     /**
