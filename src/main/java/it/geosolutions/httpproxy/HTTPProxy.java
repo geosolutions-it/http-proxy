@@ -52,6 +52,7 @@ import org.apache.commons.httpclient.auth.AuthScope;
 import org.apache.commons.httpclient.methods.DeleteMethod;
 import org.apache.commons.httpclient.methods.EntityEnclosingMethod;
 import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.commons.httpclient.methods.InputStreamRequestEntity;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.multipart.ByteArrayPartSource;
@@ -575,7 +576,13 @@ public class HTTPProxy extends HttpServlet {
      */
     private void handleStandard(EntityEnclosingMethod methodProxyRequest,
             HttpServletRequest httpServletRequest) throws IOException {
-            methodProxyRequest.setRequestBody(httpServletRequest.getInputStream());
+		  try {
+		      // this method is deprecated! 
+		      // methodProxyRequest.setRequestBody(httpServletRequest.getInputStream());
+		      methodProxyRequest.setRequestEntity(new InputStreamRequestEntity(httpServletRequest.getInputStream()));
+		  } catch (IOException e) {
+		      throw new IOException(e);
+		  }
     }
 
     /**
