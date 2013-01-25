@@ -65,9 +65,9 @@ public class RequestTypeChecker implements ProxyCallback {
             Iterator<String> iterator = reqTypes.iterator();
 
             String urlExtForm = url.toExternalForm();
-            if (urlExtForm.indexOf("?") != -1) {
+            /*if (urlExtForm.indexOf("?") != -1) {
                 urlExtForm = urlExtForm.split("\\?")[1];
-            }
+            }*/
 
             boolean check = false;
             while (iterator.hasNext()) {

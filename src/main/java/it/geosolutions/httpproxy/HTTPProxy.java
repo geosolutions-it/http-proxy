@@ -712,17 +712,19 @@ public class HTTPProxy extends HttpServlet {
             inputStreamServerResponse = httpMethodProxyRequest
             		.getResponseBodyAsStream();
             
-            byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
-            
-            baos = new ByteArrayOutputStream(b.length);
-            
-            int read = 0;
-		    while((read = inputStreamServerResponse.read(b)) > 0){ 
-		      	baos.write(b, 0, read);
-		        baos.flush();
-		    }
-	            
-		    baos.writeTo(httpServletResponse.getOutputStream());
+            if(inputStreamServerResponse != null){
+                byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
+                
+                baos = new ByteArrayOutputStream(b.length);
+                
+                int read = 0;
+    		    while((read = inputStreamServerResponse.read(b)) > 0){ 
+    		      	baos.write(b, 0, read);
+    		        baos.flush();
+    		    }
+    	            
+    		    baos.writeTo(httpServletResponse.getOutputStream());
+            }
             
         } catch (HttpException e) {
             if (LOGGER.isLoggable(Level.SEVERE))
