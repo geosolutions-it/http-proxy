@@ -17,11 +17,15 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.utils;
+
 
 import java.io.File;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+
+import org.apache.commons.configuration.Configuration;
 
 /**
  * Utility methods.
@@ -29,45 +33,45 @@ import java.util.Set;
  * @author Simone Giannecchini, GeoSolutions SAS
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
-final class Utils {
+public final class Utils {
 
-    static final int DEFAULT_MAX_FILE_UPLOAD_SIZE = 5 * 1024 * 1024;
+    public static final int DEFAULT_MAX_FILE_UPLOAD_SIZE = 5 * 1024 * 1024;
 
     /**
      * The directory to use to temporarily store uploaded files
      */
-    static final File DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY = new File(
+    public static final File DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY = new File(
             System.getProperty("java.io.tmpdir"));
 
     /**
      * Key for redirect location header.
      */
-    static final String LOCATION_HEADER = "Location";
+    public static final String LOCATION_HEADER = "Location";
 
     /**
      * Key for content type header.
      */
-    static final String CONTENT_TYPE_HEADER_NAME = "Content-Type";
+    public static final String CONTENT_TYPE_HEADER_NAME = "Content-Type";
 
     /**
      * Key for content length header.
      */
-    static final String CONTENT_LENGTH_HEADER_NAME = "Content-Length";
+    public static final String CONTENT_LENGTH_HEADER_NAME = "Content-Length";
 
     /**
      * Key for host header
      */
-    static final String HOST_HEADER_NAME = "Host";
+    public static final String HOST_HEADER_NAME = "Host";
 
-    static final String HTTP_HEADER_ACCEPT_ENCODING = "accept-encoding";
+    public static final String HTTP_HEADER_ACCEPT_ENCODING = "accept-encoding";
 
-    static final String HTTP_HEADER_CONTENT_ENCODING = "content-encoding";
+    public static final String HTTP_HEADER_CONTENT_ENCODING = "content-encoding";
 
-    static final String HTTP_HEADER_TRANSFER_ENCODING = "transfer-encoding";
+    public static final String HTTP_HEADER_TRANSFER_ENCODING = "transfer-encoding";
     
-    static final String HTTP_HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
+    public static final String HTTP_HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
 
-    static final int DEFAULT_PROXY_PORT = 80;
+    public static final int DEFAULT_PROXY_PORT = 80;
 
     /**
      * Default private constructor to enforce singleton.
@@ -110,7 +114,7 @@ final class Utils {
      * @param proxyInfo
      * @return String
      */
-    static final String getProxyHostAndPort(ProxyInfo proxyInfo) {
+    public static final String getProxyHostAndPort(ProxyInfo proxyInfo) {
         if (proxyInfo.getProxyPort() == 80) {
             return proxyInfo.getProxyHost();
         } else {
@@ -122,7 +126,7 @@ final class Utils {
      * @param property
      * @return Set<String>
      */
-    static final Set<String> parseWhiteList(String property) {
+    public static final Set<String> parseWhiteList(String property) {
         if (property != null) {
             Set<String> set = new HashSet<String>();
 
@@ -137,6 +141,34 @@ final class Utils {
             return set;
         } else {
             return null;
+        }
+    }
+    
+    /**
+     * Obtain a property value as Set of String from a properties configuration
+     * 
+     * @param props
+     * @param key
+     * 
+     * @return Set with all values as String or null if the key can't be found
+     */
+    public static final Set<String> getProperty(Configuration props, String key){
+        Object tmpProperty = props.getProperty(key);
+        if(tmpProperty != null){
+            Set<String> set = new HashSet<String>();
+            if(tmpProperty instanceof Collection<?>){
+                for (Object tmpElement: (Collection<?>) tmpProperty) {
+                    if (tmpElement != null){
+                    	String element = tmpElement.toString();
+                        set.add(element);
+                    }
+                }
+            }else{
+            	set.add(tmpProperty.toString());
+            }
+            return set;
+        }else{
+        	return null;
         }
     }
 }

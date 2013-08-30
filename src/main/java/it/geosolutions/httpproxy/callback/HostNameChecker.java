@@ -17,7 +17,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.callback;
+
+import it.geosolutions.httpproxy.exception.HttpErrorException;
+import it.geosolutions.httpproxy.service.ProxyConfig;
 
 import java.io.IOException;
 import java.net.URL;
@@ -29,20 +32,25 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * MimeTypeChecker class for the mimetype check.
+ * HostNameChecker class for hostname check.
  * 
- * @author Andrea Aime - GeoSolutions
- * 
+ * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * @author Alejandro Diaz
  */
-public class MimeTypeChecker implements ProxyCallback {
+public class HostNameChecker extends AbstractProxyCallback implements ProxyCallback{
 
-    ProxyConfig config;
+    /**
+     * Default constructor
+     */
+    public HostNameChecker() {
+    	super();
+    }
 
     /**
      * @param config
      */
-    public MimeTypeChecker(ProxyConfig config) {
-        this.config = config;
+    public HostNameChecker(ProxyConfig config) {
+        super(config);
     }
 
     /*
@@ -52,6 +60,20 @@ public class MimeTypeChecker implements ProxyCallback {
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
+        Set<String> hostNames = config.getHostnameWhitelist();
+
+        // ////////////////////////////////
+        // Check the whitelist of hosts
+        // ////////////////////////////////
+
+        if (hostNames != null && hostNames.size() > 0) {
+            String hostName = url.getHost();
+
+            if (!hostNames.contains(hostName)) {
+                throw new HttpErrorException(403, "Host Name " + hostName
+                        + " is not among the ones allowed for this proxy");
+            }
+        }
     }
 
     /*
@@ -60,22 +82,6 @@ public class MimeTypeChecker implements ProxyCallback {
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
     public void onRemoteResponse(HttpMethod method) throws IOException {
-        Set<String> mimeTypes = config.getMimetypeWhitelist();
-
-        if (mimeTypes != null && mimeTypes.size() > 0) {
-            String contentType = method.getResponseHeader("Content-type").getValue();
-
-            // //////////////////////////////////
-            // Trim off extraneous information
-            // //////////////////////////////////
-
-            String firstType = contentType.split(";")[0];
-
-            if (!mimeTypes.contains(firstType)) {
-                throw new HttpErrorException(403, "Content-type " + firstType
-                        + " is not among the ones allowed for this proxy");
-            }
-        }
     }
 
     /*

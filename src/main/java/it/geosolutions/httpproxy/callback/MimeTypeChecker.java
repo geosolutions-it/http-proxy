@@ -17,7 +17,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.callback;
+
+import it.geosolutions.httpproxy.exception.HttpErrorException;
+import it.geosolutions.httpproxy.service.ProxyConfig;
 
 import java.io.IOException;
 import java.net.URL;
@@ -29,19 +32,26 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * HostChecker class for host check.
+ * MimeTypeChecker class for the mimetype check.
  * 
- * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * @author Andrea Aime - GeoSolutions
+ * @author Alejandro Diaz
+ * 
  */
-public class HostChecker implements ProxyCallback {
+public class MimeTypeChecker extends AbstractProxyCallback implements ProxyCallback {
 
-    ProxyConfig config;
+    /**
+     * Default constructor
+     */
+    public MimeTypeChecker() {
+    	super();
+    }
 
     /**
      * @param config
      */
-    public HostChecker(ProxyConfig config) {
-        this.config = config;
+    public MimeTypeChecker(ProxyConfig config) {
+        super(config);
     }
 
     /*
@@ -51,20 +61,6 @@ public class HostChecker implements ProxyCallback {
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
-        Set<String> hosts = config.getHostsWhitelist();
-
-        // ////////////////////////////////
-        // Check the whitelist of hosts
-        // ////////////////////////////////
-
-        if (hosts != null && hosts.size() > 0) {
-            String host = getRemoteAddr(request);
-
-            if (!hosts.contains(host)) {
-                throw new HttpErrorException(403, "Client Host " + host
-                        + " is not among the ones allowed for this proxy");
-            }
-        }
     }
 
     /*
@@ -73,6 +69,22 @@ public class HostChecker implements ProxyCallback {
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
     public void onRemoteResponse(HttpMethod method) throws IOException {
+        Set<String> mimeTypes = config.getMimetypeWhitelist();
+
+        if (mimeTypes != null && mimeTypes.size() > 0) {
+            String contentType = method.getResponseHeader("Content-type").getValue();
+
+            // //////////////////////////////////
+            // Trim off extraneous information
+            // //////////////////////////////////
+
+            String firstType = contentType.split(";")[0];
+
+            if (!mimeTypes.contains(firstType)) {
+                throw new HttpErrorException(403, "Content-type " + firstType
+                        + " is not among the ones allowed for this proxy");
+            }
+        }
     }
 
     /*
@@ -81,20 +93,6 @@ public class HostChecker implements ProxyCallback {
      * @see it.geosolutions.httpproxy.ProxyCallback#onFinish()
      */
     public void onFinish() throws IOException {
-    }
-
-    /**
-     * @param req
-     * @return String
-     */
-    private String getRemoteAddr(HttpServletRequest req) {
-        String forwardedFor = req.getHeader("X-Forwarded-For");
-        if (forwardedFor != null) {
-            String[] ips = forwardedFor.split(", ");
-            return ips[0];
-        } else {
-            return req.getRemoteAddr();
-        }
     }
 
 }

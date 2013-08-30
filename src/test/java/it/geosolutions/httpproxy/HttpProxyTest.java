@@ -42,19 +42,23 @@ public class HttpProxyTest extends BaseHttpTest {
         URL url = new URL("http://localhost:8080/http_proxy/proxy/?"
                 + "url=http%3A%2F%2Fdemo1.geo-solutions.it%2Fgeoserver%2Fwms%3F"
                 + "SERVICE%3DWMS%26REQUEST%3DGetCapabilities%26version=1.1.1");
-
+        
+        // Original response
+        URL urlWithoutProxy = new URL("http://demo1.geo-solutions.it/geoserver/wms?SERVICE=WMS&REQUEST=GetCapabilities&version=1.1.1");
+        HttpURLConnection conWithoutProxy = (HttpURLConnection) urlWithoutProxy.openConnection();
+        String responseWithoutProxy = IOUtils.toString(conWithoutProxy.getInputStream());
+        
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
         String response = IOUtils.toString(con.getInputStream());
 
         assertNotNull(response);
-        assertTrue(response
-                .indexOf("<!DOCTYPE WMT_MS_Capabilities SYSTEM \"http://demo1.geo-solutions.it:80/geoserver"
-                        + "/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd\">") != -1);
+        assertEquals(response, responseWithoutProxy);
         assertTrue(con.getRequestMethod().equals("GET"));
         assertTrue(con.getResponseCode() == 200);
 
         con.disconnect();
+        conWithoutProxy.disconnect();
 
         // ////////////////////////////
         // Test with a fake hostname

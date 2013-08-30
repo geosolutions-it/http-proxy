@@ -17,11 +17,17 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.callback;
+
+import it.geosolutions.httpproxy.exception.HttpErrorException;
+import it.geosolutions.httpproxy.service.ProxyConfig;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Iterator;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -29,19 +35,25 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * HostNameChecker class for hostname check.
+ * RequestTypeChecker class for request type check.
  * 
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * @author Alejandro Diaz
  */
-public class HostNameChecker implements ProxyCallback {
+public class RequestTypeChecker extends AbstractProxyCallback implements ProxyCallback {
 
-    ProxyConfig config;
+    /**
+     * Default constructor
+     */
+    public RequestTypeChecker() {
+    	super();
+    }
 
     /**
      * @param config
      */
-    public HostNameChecker(ProxyConfig config) {
-        this.config = config;
+    public RequestTypeChecker(ProxyConfig config) {
+        super(config);
     }
 
     /*
@@ -51,19 +63,37 @@ public class HostNameChecker implements ProxyCallback {
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
-        Set<String> hostNames = config.getHostnameWhitelist();
+        Set<String> reqTypes = config.getReqtypeWhitelist();
 
-        // ////////////////////////////////
-        // Check the whitelist of hosts
-        // ////////////////////////////////
+        // //////////////////////////////////////
+        // Check off the request type
+        // provided vs. permitted request types
+        // //////////////////////////////////////
 
-        if (hostNames != null && hostNames.size() > 0) {
-            String hostName = url.getHost();
+        if (reqTypes != null && reqTypes.size() > 0) {
+            Iterator<String> iterator = reqTypes.iterator();
 
-            if (!hostNames.contains(hostName)) {
-                throw new HttpErrorException(403, "Host Name " + hostName
-                        + " is not among the ones allowed for this proxy");
+            String urlExtForm = url.toExternalForm();
+            /*if (urlExtForm.indexOf("?") != -1) {
+                urlExtForm = urlExtForm.split("\\?")[1];
+            }*/
+
+            boolean check = false;
+            while (iterator.hasNext()) {
+                String regex = iterator.next();
+
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(urlExtForm);
+
+                if (matcher.matches()) {
+                    check = true;
+                    break;
+                }
             }
+
+            if (!check)
+                throw new HttpErrorException(403, "Request Type"
+                        + " is not among the ones allowed for this proxy");
         }
     }
 

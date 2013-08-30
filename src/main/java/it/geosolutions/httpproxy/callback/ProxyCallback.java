@@ -17,7 +17,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.callback;
+
+import it.geosolutions.httpproxy.exception.HttpErrorException;
+import it.geosolutions.httpproxy.service.ProxyConfig;
 
 import java.io.IOException;
 import java.net.URL;
@@ -31,8 +34,16 @@ import org.apache.commons.httpclient.HttpMethod;
  * A pluggable callback that can perform checks or alter the request.
  * 
  * @author Andrea Aime - GeoSolutions
+ * @author Alejandro Diaz
  */
 public interface ProxyCallback {
+	
+	/**
+	 * Configure a callback with a proxi configuration
+	 * 
+	 * @param config
+	 */
+	void setProxyConfig(ProxyConfig config);
 
     /**
      * First to be called, can be used to initialize the callback status and disallow certain requests by throwing an {@link HttpErrorException}

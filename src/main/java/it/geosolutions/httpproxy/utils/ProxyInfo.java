@@ -17,14 +17,15 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.utils;
+
 
 /**
  * Simple placeholder class for the proxy information.
  * 
  * @author Simone Giannecchini, GeoSolutions SAS
  */
-final class ProxyInfo {
+public final class ProxyInfo {
 
     private static final String DEFAULT_PROXY_APTH = "";
 
