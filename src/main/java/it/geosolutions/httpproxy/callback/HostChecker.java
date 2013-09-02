@@ -17,7 +17,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package it.geosolutions.httpproxy;
+package it.geosolutions.httpproxy.callback;
+
+import it.geosolutions.httpproxy.exception.HttpErrorException;
+import it.geosolutions.httpproxy.service.ProxyConfig;
 
 import java.io.IOException;
 import java.net.URL;
@@ -29,39 +32,47 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
- * MethodsChecker class for http methods check.
+ * HostChecker class for host check.
  * 
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * @author Alejandro Diaz
  */
-public class MethodsChecker implements ProxyCallback {
-
-    ProxyConfig config;
+public class HostChecker  extends AbstractProxyCallback implements ProxyCallback {
 
     /**
-     * @param config
+     * Default constructor
      */
-    public MethodsChecker(ProxyConfig config) {
-        this.config = config;
+    public HostChecker() {
+    	super();
     }
 
-    /*
+    /**
+     * Constructor with config parameter
+     * 
+     * @param config
+     */
+    public HostChecker(ProxyConfig config) {
+		super(config);
+	}
+
+	/*
      * (non-Javadoc)
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
-        Set<String> methods = config.getMethodsWhitelist();
+        Set<String> hosts = config.getHostsWhitelist();
 
         // ////////////////////////////////
-        // Check the whitelist of methods
+        // Check the whitelist of hosts
         // ////////////////////////////////
 
-        if (methods != null && methods.size() > 0) {
-            String method = request.getMethod();
+        if (hosts != null && hosts.size() > 0) {
+            String host = getRemoteAddr(request);
 
-            if (!methods.contains(method)) {
-                throw new HttpErrorException(403, "HTTP Method " + method
+            if (!hosts.contains(host)) {
+                throw new HttpErrorException(403, "Client Host " + host
                         + " is not among the ones allowed for this proxy");
             }
         }
@@ -82,4 +93,19 @@ public class MethodsChecker implements ProxyCallback {
      */
     public void onFinish() throws IOException {
     }
+
+    /**
+     * @param req
+     * @return String
+     */
+    private String getRemoteAddr(HttpServletRequest req) {
+        String forwardedFor = req.getHeader("X-Forwarded-For");
+        if (forwardedFor != null) {
+            String[] ips = forwardedFor.split(", ");
+            return ips[0];
+        } else {
+            return req.getRemoteAddr();
+        }
+    }
+
 }

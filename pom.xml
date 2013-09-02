@@ -22,6 +22,10 @@
         <url>ftp://maven.geo-solutions.it</url>
       </repository>
     </distributionManagement>
+    
+    <properties>
+    	<spring.framework.version>3.2.3.RELEASE</spring.framework.version>
+    </properties>
 	
 	<build>
 		<plugins>
@@ -34,14 +38,14 @@
 			</plugin>
 
 			<!-- We skip the unit tests when building and packaging because it it 
-				requires specific test set-up. -->
+				requires specific test set-up. --> 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
 					<skip>true</skip>
 				</configuration>
-			</plugin> 
+			</plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -183,6 +187,12 @@
 			<artifactId>commons-io</artifactId>
 			<version>2.1</version>
 		</dependency>
+		
+		<dependency>
+			<groupId>commons-configuration</groupId>
+			<artifactId>commons-configuration</artifactId>
+			<version>1.9</version>
+		</dependency>
 
 		<dependency>
 			<groupId>org.mortbay.jetty</groupId>
@@ -204,6 +214,30 @@
         	<version>6.1.5</version> 
         	<scope>test</scope> 
         </dependency>
+        
+        <!-- Spring Framefork -->
+        <dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-context</artifactId>
+			<version>${spring.framework.version}</version>
+		</dependency>
+        <dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
+			<version>${spring.framework.version}</version>
+		</dependency>
+        <dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-test</artifactId>
+			<version>${spring.framework.version}</version>
+	        <scope>test</scope>
+		</dependency>
+		<dependency>
+	        <groupId>org.springframework</groupId>
+	        <artifactId>spring-mock</artifactId>
+			<version>2.0.8</version>
+	        <scope>test</scope>
+	    </dependency> 
 
 	</dependencies>
 
@@ -236,6 +270,13 @@
 			<name>Geotools repository</name>
 			<url>http://maven.geotools.fr/repository</url>
 		</repository>
+		
+		<repository>
+		    <id>springsource-repo</id>
+		    <name>SpringSource Repository</name>
+		    <url>http://repo.springsource.org/release</url>
+		</repository>
+		
 	</repositories>
 
 </project>

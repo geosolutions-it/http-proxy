@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <context:annotation-config/>
+    <context:component-scan base-package="it.geosolutions.httpproxy"/>
+	
+	<!-- The file proxy.properties in the classpath is reloaded at runtime -->
+    <bean id="runtimeProxyProperties"
+        class="org.apache.commons.configuration.PropertiesConfiguration"
+		init-method="load">
+		<property name="URL">		
+			<value>classpath:proxy.alternative.properties</value>
+		</property>
+		<property name="reloadingStrategy">
+			<bean class="org.apache.commons.configuration.reloading.FileChangedReloadingStrategy"/>
+		</property>
+    </bean>
+    
+    <!-- The file proxy-ext.properties in the classpath is reloaded at runtime too -->
+    <bean id="runtimeExtProxyProperties"
+        class="org.apache.commons.configuration.PropertiesConfiguration"
+		init-method="load">
+		<property name="URL">		
+			<value>classpath:proxy-ext.properties</value>
+		</property>
+		<property name="reloadingStrategy">
+			<bean class="org.apache.commons.configuration.reloading.FileChangedReloadingStrategy"/>
+		</property>
+    </bean>
+
+    <bean id="additionalFiles"
+        class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="ignoreResourceNotFound" value="true" />
+        <property name="locations">
+            <list>
+                <value>classpath:proxy-*.properties</value>
+                <!-- You can add here proxy configuration extensions 
+                and load the files -->
+            </list>
+        </property>
+    </bean>
+    
+    <bean id="additionalProperties" 
+    	class="org.apache.commons.configuration.MapConfiguration">
+        <constructor-arg index="0">
+           	<ref bean="additionalFiles"/>
+        </constructor-arg>
+    </bean>
+
+    <bean id="proxyProperties" class="org.apache.commons.configuration.CompositeConfiguration">
+        <constructor-arg index="0">
+            <list>
+                <ref bean="runtimeExtProxyProperties"/>
+                <ref bean="additionalProperties"/>
+                <ref bean="runtimeProxyProperties"/>
+            </list>
+        </constructor-arg>
+    </bean>
+     	
+    <bean id="proxyConfig" class="it.geosolutions.httpproxy.service.impl.ProxyConfigCommonsImpl" />
+    
+    <bean id="proxyHelper" class="it.geosolutions.httpproxy.service.impl.ProxyHelperImpl">
+        <property name="proxyConfig"><ref bean="proxyConfig"/></property>
+    </bean>
+    
+    <bean id="proxyService" class="it.geosolutions.httpproxy.service.impl.ProxyServiceImpl">
+    	<property name="proxyConfig" ref="proxyConfig"></property>
+    	<property name="proxyHelper" ref="proxyHelper"></property>
+    	<property name="callbacks">
+            <list>
+                <bean class="it.geosolutions.httpproxy.callback.MimeTypeChecker" />
+                <bean class="it.geosolutions.httpproxy.callback.HostNameChecker" />
+                <bean class="it.geosolutions.httpproxy.callback.RequestTypeChecker" />
+                <bean class="it.geosolutions.httpproxy.callback.MethodsChecker" />
+                <bean class="it.geosolutions.httpproxy.callback.HostChecker" />
+            </list>
+    	</property>
+    </bean>
+    
+</beans>
