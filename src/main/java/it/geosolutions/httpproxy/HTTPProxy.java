@@ -22,9 +22,12 @@ package it.geosolutions.httpproxy;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -243,18 +246,17 @@ public class HTTPProxy extends HttpServlet {
      */
     public void doPost(HttpServletRequest httpServletRequest,
             HttpServletResponse httpServletResponse) throws IOException, ServletException {
-
         try {
 
             URL url = null;
             String user = null, password = null;
+            //Parse the queryString to not read the request body calling getParameter from httpServletRequest
+            // so the method can simply forward the request body
+            Map<String,String> pars=  splitQuery(httpServletRequest.getQueryString());
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+            for (String  key : pars.keySet()) {
 
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
+                String value = pars.get(key);
 
                 if ("user".equals(key)) {
                     user = value;
@@ -295,7 +297,6 @@ public class HTTPProxy extends HttpServlet {
                 // ///////////////////////////////
                 // Execute the proxy request
                 // ///////////////////////////////
-
                 this.executeProxyRequest(postMethodProxyRequest, httpServletRequest,
                         httpServletResponse, user, password, proxyInfo);
 
@@ -321,13 +322,13 @@ public class HTTPProxy extends HttpServlet {
 
             URL url = null;
             String user = null, password = null;
+          //Parse the queryString to not read the request body calling getParameter from httpServletRequest
+            // so the method can simply forward the request body
+            Map<String,String> pars=  splitQuery(httpServletRequest.getQueryString());
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+            for (String  key : pars.keySet()) {
 
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
+                String value = pars.get(key);
 
                 if ("user".equals(key)) {
                     user = value;
@@ -337,7 +338,6 @@ public class HTTPProxy extends HttpServlet {
                     url = new URL(value);
                 }
             }
-
             if (url != null) {
 
                 onInit(httpServletRequest, httpServletResponse, url);
@@ -395,12 +395,12 @@ public class HTTPProxy extends HttpServlet {
             URL url = null;
             String user = null, password = null;
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+          //Parse the queryString to not read the request body calling getParameter from httpServletRequest
+            Map<String,String> pars=  splitQuery(httpServletRequest.getQueryString());
 
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
+            for (String  key : pars.keySet()) {
+
+                String value = pars.get(key);
 
                 if ("user".equals(key)) {
                     user = value;
@@ -577,9 +577,15 @@ public class HTTPProxy extends HttpServlet {
     private void handleStandard(EntityEnclosingMethod methodProxyRequest,
             HttpServletRequest httpServletRequest) throws IOException {
 		  try {
-		      // this method is deprecated! 
-		      // methodProxyRequest.setRequestBody(httpServletRequest.getInputStream());
+		      
+			  InputStream is =httpServletRequest.getInputStream();
+			 
 		      methodProxyRequest.setRequestEntity(new InputStreamRequestEntity(httpServletRequest.getInputStream()));
+		      //LOGGER.info("original request content length:" + httpServletRequest.getContentLength());
+		      //LOGGER.info("proxied request content length:" +methodProxyRequest.getRequestEntity().getContentLength()+"");
+		      
+		      
+		       
 		  } catch (IOException e) {
 		      throw new IOException(e);
 		  }
@@ -834,6 +840,16 @@ public class HTTPProxy extends HttpServlet {
         return proxyInfo;
     }
 
+    private Map<String,String> splitQuery(String query) throws UnsupportedEncodingException {
+        Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+        
+        String[] pairs = query.split("&");
+        for (String pair : pairs) {
+            int idx = pair.indexOf("=");
+            query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+        }
+        return query_pairs;
+    }
     /**
      * @return int the maximum file upload size.
      */

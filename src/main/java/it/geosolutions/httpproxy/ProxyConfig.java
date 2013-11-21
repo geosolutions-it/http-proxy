@@ -156,7 +156,7 @@ final class ProxyConfig {
             if (s != null)
                 rt.add(s);
             
-            s = props.getProperty("reqtypeWhitelist.fdh");
+            s = props.getProperty("reqtypeWhitelist.generic");
             if (s != null)
                 rt.add(s);
 
@@ -365,7 +365,7 @@ final class ProxyConfig {
             if (s != null)
                 rt.add(s);
             
-            s = props.getProperty("reqtypeWhitelist.fdh");
+            s = props.getProperty("reqtypeWhitelist.generic");
             if (s != null)
                 rt.add(s);
 
