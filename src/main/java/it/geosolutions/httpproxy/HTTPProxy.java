@@ -128,8 +128,33 @@ public class HTTPProxy extends HttpServlet {
         params.setMaxTotalConnections(proxyConfig.getMaxTotalConnections());
         params.setDefaultMaxConnectionsPerHost(proxyConfig.getDefaultMaxConnectionsPerHost());
 
+        //setSystemProxy(params);
+        
         connectionManager.setParams(params);
         httpClient = new HttpClient(connectionManager);
+        
+        //
+        // Check for system proxy usage
+        //
+        try {
+            String proxyHost = System.getProperty("http.proxyHost");
+            int proxyPort = 80;
+
+            if (proxyHost != null && !proxyHost.isEmpty()) {
+                try {
+                    proxyPort = (System.getProperty("http.proxyPort") != null ? 
+                    		Integer.parseInt(System.getProperty("http.proxyPort")) : proxyPort);
+                    
+                    httpClient.getHostConfiguration().setProxy(proxyHost, proxyPort);
+
+                } catch (Exception ex) {
+                    LOGGER.warning("No proxy port found");
+                }
+            }
+            
+        } catch (Exception ex) {
+            LOGGER.warning("Exception while setting the system proxy: " + ex.getLocalizedMessage());
+        }
 
         // //////////////////////////////////////////
         // Setup the callbacks (in the future this
@@ -143,6 +168,40 @@ public class HTTPProxy extends HttpServlet {
         callbacks.add(new MethodsChecker(proxyConfig));
         callbacks.add(new HostChecker(proxyConfig));
     }
+
+    /**
+     * Set the system proxy host and port
+     * 
+     * @param params
+     */
+    /*public static void setSystemProxy(HttpConnectionManagerParams params) {
+        try {
+            String proxyHost = System.getProperty("http.proxyHost");
+            int proxyPort = 80;
+
+            if (proxyHost != null && !proxyHost.isEmpty()) {
+                try {
+                    proxyPort = (System.getProperty("http.proxyPort") != null ? Integer.parseInt(System.getProperty("http.proxyPort")) : proxyPort);
+
+                    System.setProperty("java.net.useSystemProxies", "true");
+
+                    params.setParameter("http.proxyHost", proxyHost);
+                    params.setParameter("http.proxyPort", proxyPort);
+                    
+                    String nonProxyHosts = System.getProperty("http.nonProxyHosts");
+                    if(nonProxyHosts != null && !nonProxyHosts.isEmpty()){
+                    	params.setParameter("http.nonProxyHosts", nonProxyHosts);                   	
+                    }
+
+                } catch (Exception ex) {
+                    LOGGER.warning("No proxy port found");
+                }
+            }
+            
+        } catch (Exception ex) {
+            LOGGER.warning("Exception while setting the system proxy: " + ex.getLocalizedMessage());
+        }
+    }*/
 
     /**
      * @param request
