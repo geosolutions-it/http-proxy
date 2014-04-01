@@ -26,6 +26,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpMethod;
 
 /**
@@ -63,18 +64,25 @@ public class MimeTypeChecker implements ProxyCallback {
         Set<String> mimeTypes = config.getMimetypeWhitelist();
 
         if (mimeTypes != null && mimeTypes.size() > 0) {
-            String contentType = method.getResponseHeader("Content-type").getValue();
+            Header header = method.getResponseHeader("Content-type");
+            
+            
+            if(header != null){              	
+            	String contentType = header.getValue();
+            	
+                // //////////////////////////////////
+                // Trim off extraneous information
+                // //////////////////////////////////
 
-            // //////////////////////////////////
-            // Trim off extraneous information
-            // //////////////////////////////////
+                String firstType = contentType.split(";")[0];
 
-            String firstType = contentType.split(";")[0];
-
-            if (!mimeTypes.contains(firstType)) {
-                throw new HttpErrorException(403, "Content-type " + firstType
-                        + " is not among the ones allowed for this proxy");
+                if (!mimeTypes.contains(firstType)) {
+                    throw new HttpErrorException(403, "Content-type " + firstType
+                            + " is not among the ones allowed for this proxy");
+                }
             }
+
+
         }
     }
 
