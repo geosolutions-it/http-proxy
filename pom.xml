@@ -89,6 +89,7 @@
 						<configuration>
 							<packaging>jar</packaging>
 							<generatePom>true</generatePom>
+                                                        <pomFile>${basedir}/pom.xml</pomFile>
 							<repositoryId>geosolutions</repositoryId>
 							<url>${project.distributionManagement.repository.url}</url>
 							<artifactId>${project.artifactId}</artifactId>
