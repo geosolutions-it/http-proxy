@@ -73,7 +73,7 @@ import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  * @author Simone Giannecchini, GeoSolutions SAS
  * 
- * Change Request for HttpNonProxyhost
+ * Changes for managing HttpNonProxyhost
  * @author Claudio Biancalana at claudio.biancalana@laitspa.it, LAit S.p.A.
  * @author Mirko Dalla Bernardina at mirko.dallabernardina@laitspa.it, LAit S.p.A.
  * 
@@ -936,7 +936,7 @@ public class HTTPProxy extends HttpServlet {
      * tests if targetHost match the java environment variable 'http.nonProxyHosts'
      * 
      * @param targetHost
-     * @return true if match false otherwise
+     * @return true if matches, false otherwise
      */
 	private boolean nonProxyMatch(String targetHost)
 	{
