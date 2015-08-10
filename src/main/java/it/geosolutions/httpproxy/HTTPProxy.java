@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -71,6 +72,11 @@ import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
  * @author Alessio Fabiani at alessio.fabiani@geo-solutions.it
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  * @author Simone Giannecchini, GeoSolutions SAS
+ * 
+ * Change Request for HttpNonProxyhost
+ * @author Claudio Biancalana at claudio.biancalana@laitspa.it, LAit S.p.A.
+ * @author Mirko Dalla Bernardina at mirko.dallabernardina@laitspa.it, LAit S.p.A.
+ * 
  */
 public class HTTPProxy extends HttpServlet {
 
@@ -93,9 +99,14 @@ public class HTTPProxy extends HttpServlet {
     private MultiThreadedHttpConnectionManager connectionManager;
 
     /**
-     * An HTTP "user-agent", containing an HTTP state and one or more HTTP connections, to which HTTP methods can be applied.
+     * An HTTP "user-agent", containing an HTTP state and one or more HTTP external connections, to which HTTP methods can be applied.
      */
     private HttpClient httpClient;
+
+    /**
+     * An HTTP "user-agent", containing an HTTP state and one or more HTTP internal connections, to which HTTP methods can be applied.
+     */
+    private HttpClient httpClient_noProxy;
 
     /**
      * The proxy configuration.
@@ -131,15 +142,21 @@ public class HTTPProxy extends HttpServlet {
         //setSystemProxy(params);
         
         connectionManager.setParams(params);
+        
+        
+        
         httpClient = new HttpClient(connectionManager);
+        httpClient_noProxy = new HttpClient(connectionManager);
+        
         
         //
         // Check for system proxy usage
         //
         try {
             String proxyHost = System.getProperty("http.proxyHost");
-            int proxyPort = 80;
 
+            int proxyPort = 80;
+            
             if (proxyHost != null && !proxyHost.isEmpty()) {
                 try {
                     proxyPort = (System.getProperty("http.proxyPort") != null ? 
@@ -678,8 +695,12 @@ public class HTTPProxy extends HttpServlet {
             // //////////////////////////
             // Execute the request
             // //////////////////////////
+        	int intProxyResponseCode = -1;
 
-            int intProxyResponseCode = httpClient.executeMethod(httpMethodProxyRequest);
+        	if (nonProxyMatch(httpMethodProxyRequest.getRequestHeader("host").getValue()))
+        		intProxyResponseCode = httpClient_noProxy.executeMethod(httpMethodProxyRequest);
+        	else
+        		intProxyResponseCode = httpClient.executeMethod(httpMethodProxyRequest);
 
             onRemoteResponse(httpMethodProxyRequest);
 
@@ -909,6 +930,33 @@ public class HTTPProxy extends HttpServlet {
         }
         return query_pairs;
     }
+    
+    /**
+     * 
+     * tests if targetHost match the java environment variable 'http.nonProxyHosts'
+     * 
+     * @param targetHost
+     * @return true if match false otherwise
+     */
+	private boolean nonProxyMatch(String targetHost)
+	{
+		boolean ret = false;
+		
+		String nonProxyHosts = System.getProperty("http.nonProxyHosts");	
+		if (!nonProxyHosts.equals(null))
+		{
+			StringTokenizer st = new StringTokenizer(nonProxyHosts,"|");
+			while(st.hasMoreTokens()&&!ret)
+			{
+				String aux = st.nextToken();
+				if (aux.startsWith("*"))
+					aux = "\\w"+aux;
+				ret = targetHost.matches(aux);
+			}
+		}
+		return ret;	
+	}
+    
     /**
      * @return int the maximum file upload size.
      */
