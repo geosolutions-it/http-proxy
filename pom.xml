@@ -217,7 +217,7 @@
 			<name>
 				Ibiblio - the public's library and digital archive
 			</name>
-			<url>http://www.ibiblio.org/maven2</url>
+			<url>http://maven.ibiblio.org/maven2/</url>
 		</repository>
 
 		<repository>
