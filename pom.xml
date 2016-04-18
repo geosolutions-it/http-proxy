@@ -33,13 +33,11 @@
 				</configuration>
 			</plugin>
 
-			<!-- We skip the unit tests when building and packaging because it it 
-				requires specific test set-up. -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<skip>true</skip>
+					<skip>false</skip>
 				</configuration>
 			</plugin> 
 
@@ -206,6 +204,13 @@
         	<scope>test</scope> 
         </dependency>
 
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-all</artifactId>
+			<version>1.9.5</version>
+			<scope>test</scope>
+		</dependency>
+		
 	</dependencies>
 
 	<repositories>
