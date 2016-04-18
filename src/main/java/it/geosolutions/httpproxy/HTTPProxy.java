@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -708,16 +709,11 @@ public class HTTPProxy extends HttpServlet {
                 // servlet rather that the proxied host
                 // /////////////////////////////////////////////
 
-                String stringMyHostName = httpServletRequest.getServerName();
-
-                if (httpServletRequest.getServerPort() != 80) {
-                    stringMyHostName += ":" + httpServletRequest.getServerPort();
+                String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, "UTF-8");
+                httpServletResponse.sendRedirect(redirectURL);
+                if(LOGGER.isLoggable(Level.FINE)){
+                	LOGGER.log(Level.FINE, "redirected to:" + redirectURL);
                 }
-
-                stringMyHostName += httpServletRequest.getContextPath();
-                httpServletResponse.sendRedirect(stringLocation.replace(
-                        Utils.getProxyHostAndPort(proxyInfo) + proxyInfo.getProxyPath(),
-                        stringMyHostName));
 
                 return;
 
@@ -794,6 +790,10 @@ public class HTTPProxy extends HttpServlet {
         } catch (HttpException e) {
             if (LOGGER.isLoggable(Level.SEVERE))
                 LOGGER.log(Level.SEVERE, "Error executing HTTP method ", e);
+        } catch (Exception e) {
+        	if(LOGGER.isLoggable(Level.SEVERE)){
+        		LOGGER.log(Level.SEVERE, "Error executing HTTP method", e);
+        	}
         } finally {
 			try {
 	        	if(inputStreamServerResponse != null)
