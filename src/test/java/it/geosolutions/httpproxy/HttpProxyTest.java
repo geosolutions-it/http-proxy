@@ -19,82 +19,97 @@
  */
 package it.geosolutions.httpproxy;
 
-import java.net.HttpURLConnection;
+import java.io.File;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import org.apache.commons.io.IOUtils;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.commons.httpclient.Header;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.methods.GetMethod;
+import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 /**
  * HttpProxyTest class. Test Cases for the HTTPProxy servlet.
  * 
- * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
+ * @author Lorenzo Natali at lorenzo.natali@geo-solutions.it
  */
-public class HttpProxyTest extends BaseHttpTest {
+public class HttpProxyTest extends Mockito {
+	final ServletConfig servletConfig = mock(ServletConfig.class);
+	ServletContext ctx = mock(ServletContext.class);
+	Map<String, String[]> parameters = new HashMap<String, String[]>();
+	private List<Header> headers = new ArrayList<Header>();
 
-    @Test
-    public void testDoGet() throws Exception {
+	@Before
+	public void setUp() {
+		File f = new File(getClass().getClassLoader()
+				.getResource("proxy.properties").getFile());
+		when(ctx.getInitParameter("proxyPropPath")).thenReturn(
+				f.getAbsolutePath());
+		when(servletConfig.getServletContext()).thenReturn(ctx);
 
-        // ////////////////////////////
-        // Test with a correct request
-        // ////////////////////////////
+		// setup base parameters
 
-        URL url = new URL("http://localhost:8080/http_proxy/proxy/?"
-                + "url=http%3A%2F%2Fdemo1.geo-solutions.it%2Fgeoserver%2Fwms%3F"
-                + "SERVICE%3DWMS%26REQUEST%3DGetCapabilities%26version=1.1.1");
+		parameters.put("url", new String[] { "http://sample.com/" });
 
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+	}
 
-        String response = IOUtils.toString(con.getInputStream());
+	@Test
+	public void testRedirectGet() throws Exception {
+		HttpClient mockHttpClient;
+		HTTPProxy proxy;
 
-        assertNotNull(response);
-        assertTrue(response
-                .indexOf("<!DOCTYPE WMT_MS_Capabilities SYSTEM \"http://demo1.geo-solutions.it:80/geoserver"
-                        + "/schemas/wms/1.1.1/WMS_MS_Capabilities.dtd\">") != -1);
-        assertTrue(con.getRequestMethod().equals("GET"));
-        assertTrue(con.getResponseCode() == 200);
+		mockHttpClient = mock(HttpClient.class);
 
-        con.disconnect();
+		// mock redirect response
+		final GetMethod mockGetMethod = mock(GetMethod.class);
+		when(mockHttpClient.executeMethod(mockGetMethod)).thenReturn(302);
+		String fakeLocation = "http://newURL.com/";
+		when(mockGetMethod.getResponseHeader(Utils.LOCATION_HEADER))
+				.thenReturn(new Header("Location", fakeLocation));
 
-        // ////////////////////////////
-        // Test with a fake hostname
-        // ////////////////////////////
+		proxy = new HTTPProxy() {
+			private static final long serialVersionUID = 1L;
 
-        url = new URL("http://localhost:8080/http_proxy/proxy/?"
-                + "url=http%3A%2F%2FfakeServer%2Fgeoserver%2Fwms%3F"
-                + "SERVICE%3DWMS%26REQUEST%3DGetCapabilities%26version=1.1.1");
+			@Override
+			public GetMethod getGetMethod(URL url) {
+				return mockGetMethod;
+			}
+		};
+		proxy.setHttpClient(mockHttpClient);
+		proxy.init(servletConfig);
 
-        con = (HttpURLConnection) url.openConnection();
+		// mock http request to proxy
+		HttpServletRequest getRequest = mock(HttpServletRequest.class);
+		when(getRequest.getParameterMap()).thenReturn(parameters);
+		when(getRequest.getHeaderNames()).thenReturn(
+				Collections.enumeration(headers));
+		when(getRequest.getRequestURL()).thenReturn(
+				new StringBuffer("http://proxy.com/http-proxy/proxy"));
+		// mock http response object
+		HttpServletResponse getResponse = mock(HttpServletResponse.class);
+		final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
+		when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
 
-        String message = con.getResponseMessage();
-
-        assertNotNull(message);
-        assertEquals(message, "Host Name fakeServer is not among the ones allowed for this proxy");
-
-        assertTrue(con.getRequestMethod().equals("GET"));
-        assertTrue(con.getResponseCode() == 403);
-
-        con.disconnect();
-
-        // ///////////////////////////////
-        // Test with a fake request type
-        // ///////////////////////////////
-
-        url = new URL("http://localhost:8080/http_proxy/proxy/?"
-                + "url=http%3A%2F%2Fdemo1.geo-solutions.it%2Fgeoserver%2Fwms%3F"
-                + "SERVICE%3DWMS%26REQUEST%3DGetCap%26version=1.1.1");
-
-        con = (HttpURLConnection) url.openConnection();
-
-        message = con.getResponseMessage();
-
-        assertNotNull(message);
-        assertEquals(message, "Request Type is not among the ones allowed for this proxy");
-
-        assertTrue(con.getRequestMethod().equals("GET"));
-        assertTrue(con.getResponseCode() == 403);
-
-        con.disconnect();
-    }
+		proxy.doGet(getRequest, getResponse);
+		verify(getResponse).sendRedirect(
+				"http://proxy.com/http-proxy/proxy?url="
+						+ URLEncoder.encode(fakeLocation, "UTF-8"));
+		final byte[] data = servletOutputStream.baos.toByteArray();
+		Assert.assertNotNull(data);
+		Assert.assertTrue(data.length == 0);
+	}
 
 }
