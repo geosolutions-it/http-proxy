@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -97,7 +98,8 @@ public class HTTPProxy extends HttpServlet {
      */
     private HttpClient httpClient;
 
-    /**
+   
+	/**
      * The proxy configuration.
      */
     private ProxyConfig proxyConfig;
@@ -131,7 +133,12 @@ public class HTTPProxy extends HttpServlet {
         //setSystemProxy(params);
         
         connectionManager.setParams(params);
-        httpClient = new HttpClient(connectionManager);
+        if( httpClient == null ){
+        	httpClient = new HttpClient(connectionManager);
+        } else {
+        	httpClient.setHttpConnectionManager(connectionManager);
+        }
+        
         
         //
         // Check for system proxy usage
@@ -272,7 +279,7 @@ public class HTTPProxy extends HttpServlet {
                 // Create a GET request
                 // //////////////////////////////
 
-                GetMethod getMethodProxyRequest = new GetMethod(url.toExternalForm());
+                GetMethod getMethodProxyRequest = getGetMethod(url);
 
                 // //////////////////////////////
                 // Forward the request headers
@@ -296,6 +303,10 @@ public class HTTPProxy extends HttpServlet {
             onFinish();
         }
     }
+
+	protected GetMethod getGetMethod(URL url) {
+		return new GetMethod(url.toExternalForm());
+	}
 
     /**
      * Performs an HTTP POST request
@@ -708,16 +719,11 @@ public class HTTPProxy extends HttpServlet {
                 // servlet rather that the proxied host
                 // /////////////////////////////////////////////
 
-                String stringMyHostName = httpServletRequest.getServerName();
-
-                if (httpServletRequest.getServerPort() != 80) {
-                    stringMyHostName += ":" + httpServletRequest.getServerPort();
+                String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, "UTF-8");
+                httpServletResponse.sendRedirect(redirectURL);
+                if(LOGGER.isLoggable(Level.FINE)){
+                	LOGGER.log(Level.FINE, "redirected to:" + redirectURL);
                 }
-
-                stringMyHostName += httpServletRequest.getContextPath();
-                httpServletResponse.sendRedirect(stringLocation.replace(
-                        Utils.getProxyHostAndPort(proxyInfo) + proxyInfo.getProxyPath(),
-                        stringMyHostName));
 
                 return;
 
@@ -794,6 +800,10 @@ public class HTTPProxy extends HttpServlet {
         } catch (HttpException e) {
             if (LOGGER.isLoggable(Level.SEVERE))
                 LOGGER.log(Level.SEVERE, "Error executing HTTP method ", e);
+        } catch (Exception e) {
+        	if(LOGGER.isLoggable(Level.SEVERE)){
+        		LOGGER.log(Level.SEVERE, "Error executing HTTP method", e);
+        	}
         } finally {
 			try {
 	        	if(inputStreamServerResponse != null)
@@ -915,5 +925,18 @@ public class HTTPProxy extends HttpServlet {
     public int getMaxFileUploadSize() {
         return maxFileUploadSize;
     }
+    /**
+     * @return the client
+     */
+    public HttpClient getHttpClient() {
+		return httpClient;
+	}
 
+    /**
+     * set the httpClient
+     * @param httpClient the client to set
+     */
+	public void setHttpClient(HttpClient httpClient) {
+		this.httpClient = httpClient;
+	}
 }
