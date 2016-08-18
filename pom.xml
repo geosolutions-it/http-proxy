@@ -219,7 +219,7 @@
 	</dependencies>
 
 	<repositories>
-		<repository>
+		<!-- repository>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
@@ -228,7 +228,7 @@
 				Ibiblio - the public's library and digital archive
 			</name>
 			<url>http://maven.ibiblio.org/maven2/</url>
-		</repository>
+		</repository -->
 
 		<repository>
 			<snapshots>
