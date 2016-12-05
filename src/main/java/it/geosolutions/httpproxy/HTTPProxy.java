@@ -22,6 +22,7 @@ package it.geosolutions.httpproxy;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -38,6 +39,7 @@ import java.util.logging.Logger;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
+import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -786,15 +788,13 @@ public class HTTPProxy extends HttpServlet {
             if(inputStreamServerResponse != null){
                 byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
                 
-                baos = new ByteArrayOutputStream(b.length);
-                
                 int read = 0;
+                ServletOutputStream out = httpServletResponse.getOutputStream();
     		    while((read = inputStreamServerResponse.read(b)) > 0){ 
-    		      	baos.write(b, 0, read);
-    		        baos.flush();
+    		      	out.write(b, 0, read);
+    		      	out.flush();
+    		        
     		    }
-    	            
-    		    baos.writeTo(httpServletResponse.getOutputStream());
             }
             
         } catch (HttpException e) {
