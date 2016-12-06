@@ -19,7 +19,6 @@
  */
 package it.geosolutions.httpproxy;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -683,7 +682,6 @@ public class HTTPProxy extends HttpServlet {
         httpMethodProxyRequest.setFollowRedirects(false);
 
         InputStream inputStreamServerResponse = null;
-        ByteArrayOutputStream baos = null;
         
         try {
 
@@ -791,8 +789,6 @@ public class HTTPProxy extends HttpServlet {
                 ServletOutputStream out = httpServletResponse.getOutputStream();
     		    while((read = inputStreamServerResponse.read(b)) > 0){ 
     		      	out.write(b, 0, read);
-    		      	out.flush();
-    		        
     		    }
             }
             
@@ -811,18 +807,6 @@ public class HTTPProxy extends HttpServlet {
 				if (LOGGER.isLoggable(Level.SEVERE))
 					LOGGER.log(Level.SEVERE,
 							"Error closing request input stream ", e);
-				throw new ServletException(e.getMessage());
-			}
-			
-			try {
-	        	if(baos != null){
-	        		baos.flush();
-	        		baos.close();
-	        	}
-			} catch (IOException e) {
-				if (LOGGER.isLoggable(Level.SEVERE))
-					LOGGER.log(Level.SEVERE,
-							"Error closing response stream ", e);
 				throw new ServletException(e.getMessage());
 			}
         	
