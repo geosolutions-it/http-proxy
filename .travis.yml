@@ -4,8 +4,7 @@ cache:
     - "$HOME/.m2"
 language: java
 jdk:
-  - oraclejdk7
-  - openjdk7
+  - openjdk8
 script:
   - mvn -B -T2 -fae clean install
 notifications:
