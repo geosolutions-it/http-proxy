@@ -55,7 +55,7 @@ public class HttpProxyTest extends Mockito {
 	@Before
 	public void setUp() {
 		File f = new File(getClass().getClassLoader()
-				.getResource("proxy.properties").getFile());
+				.getResource("test-proxy.properties").getFile());
 		when(ctx.getInitParameter("proxyPropPath")).thenReturn(
 				f.getAbsolutePath());
 		when(servletConfig.getServletContext()).thenReturn(ctx);

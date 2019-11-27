@@ -19,6 +19,8 @@
  */
 package it.geosolutions.httpproxy;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;
@@ -212,31 +214,39 @@ final class ProxyConfig {
      * @return Properties
      */
     public Properties propertiesLoader() {
-        InputStream inputStream = ProxyConfig.class.getResourceAsStream(propertiesFilePath);
         Properties props = new Properties();
+        // can specify more paths, comma separated, all are read, if they exist
+        for (String path : propertiesFilePath.split(",") ) {
+            mergePropertiesConfig(path, props);
+        }
+        return props;
+    }
 
-        try {
-
-            if (inputStream != null) {
-                props.load(inputStream);
-                return props;
-            } else {
-                if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE, "The properties file InputStream is null");
-                return null;
-            }
-
-        } catch (IOException e) {
-            if (LOGGER.isLoggable(Level.SEVERE))
-                LOGGER.log(Level.SEVERE, "Error loading the proxy properties file ", e);
-            return null;
-        } finally {
+    private void mergePropertiesConfig(String path, Properties properties) {
+        InputStream inputStream = ProxyConfig.class.getResourceAsStream(path);
+        if (inputStream == null) {
             try {
-                if (inputStream != null)
-                    inputStream.close();
+                inputStream = new FileInputStream(path);
+            } catch (FileNotFoundException e) {
+                if (LOGGER.isLoggable(Level.WARNING))
+                    LOGGER.log(Level.WARNING, "The properties file " + path + " cannot be found");
+            }
+        }
+        if (inputStream != null) {
+            Properties props = new Properties();
+            try {
+                props.load(inputStream);
+                properties.putAll(props);
             } catch (IOException e) {
                 if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE, "Error building the proxy configuration ", e);
+                    LOGGER.log(Level.SEVERE, "Error loading the proxy properties file from " + path, e);
+            } finally {
+                if (inputStream != null)
+                    try {
+                        inputStream.close();
+                    } catch (IOException e) {
+                        
+                    }
             }
         }
     }
