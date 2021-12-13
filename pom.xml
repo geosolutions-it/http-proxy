@@ -29,8 +29,8 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.5.1</version>
 				<configuration>
-					<source>1.6</source>
-					<target>1.6</target>
+					<source>1.7</source>
+					<target>1.7</target>
 				</configuration>
 			</plugin>
 
@@ -166,7 +166,7 @@
 		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
-			<version>1.2.16</version>
+			<version>1.2.17.norce</version>
 		</dependency>
 
 		<!-- Commons -->
@@ -225,34 +225,21 @@
 	</dependencies>
 
 	<repositories>
-		<!-- repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>ibiblio</id>
-			<name>
-				Ibiblio - the public's library and digital archive
-			</name>
-			<url>http://maven.ibiblio.org/maven2/</url>
-		</repository -->
+
+        <!-- central is assumed -->
 
 		<repository>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
 			<snapshots>
 				<enabled>false</enabled>
 			</snapshots>
-			<id>central</id>
-			<name>Maven Repository Switchboard</name>
-			<url>http://repo1.maven.org/maven2</url>
+			<id>osgeo</id>
+			<name>OSGeo Nexus Release Repository</name>
+			<url>https://repo.osgeo.org/repository/release/</url>
 		</repository>
 
-		<repository>
-			<snapshots>
-				<enabled>false</enabled>
-			</snapshots>
-			<id>geotools</id>
-			<name>Geotools repository</name>
-			<url>http://maven.geotools.fr/repository</url>
-		</repository>
 	</repositories>
 
 </project>
