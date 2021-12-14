@@ -5,7 +5,7 @@
 	<packaging>war</packaging>
 	<version>1.2-SNAPSHOT</version>
 	<name>http_proxy</name>
-	<url>http://maven.apache.org</url>
+	<url>https://maven.apache.org</url>
     
 	<!-- The SCM -->
 	<scm>
