@@ -24,18 +24,26 @@ import java.net.URL;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletContext;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.methods.GetMethod;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicHeader;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,73 +51,130 @@ import org.mockito.Mockito;
 
 /**
  * HttpProxyTest class. Test Cases for the HTTPProxy servlet.
- * 
+ *
  * @author Lorenzo Natali at lorenzo.natali@geo-solutions.it
  */
 public class HttpProxyTest extends Mockito {
-	final ServletConfig servletConfig = mock(ServletConfig.class);
-	ServletContext ctx = mock(ServletContext.class);
-	Map<String, String[]> parameters = new HashMap<String, String[]>();
-	private List<Header> headers = new ArrayList<Header>();
 
-	@Before
-	public void setUp() {
-		File f = new File(getClass().getClassLoader()
-				.getResource("test-proxy.properties").getFile());
-		when(ctx.getInitParameter("proxyPropPath")).thenReturn(
-				f.getAbsolutePath());
-		when(servletConfig.getServletContext()).thenReturn(ctx);
+    final ServletConfig servletConfig = mock(ServletConfig.class);
+    ServletContext ctx = mock(ServletContext.class);
+    Map<String, String[]> parameters = new HashMap<String, String[]>();
+    private List<Header> headers = new ArrayList<Header>();
 
-		// setup base parameters
+    org.apache.http.client.HttpClient mockHttpClient;
+    HTTPProxy proxy;
+    String fakeLocation;
 
-		parameters.put("url", new String[] { "http://sample.com/" });
+    @Before
+    public void setUp() {
+        File f = new File(getClass().getClassLoader()
+                .getResource("test-proxy.properties").getFile());
+        when(ctx.getInitParameter("proxyPropPath")).thenReturn(
+                f.getAbsolutePath());
+        when(servletConfig.getServletContext()).thenReturn(ctx);
 
-	}
+        // setup base parameters
+        parameters.put("url", new String[]{"http://sample.com/"});
 
-	@Test
-	public void testRedirectGet() throws Exception {
-		HttpClient mockHttpClient;
-		HTTPProxy proxy;
+    }
 
-		mockHttpClient = mock(HttpClient.class);
+    @Test
+    public void testRedirectGet() throws Exception {
 
-		// mock redirect response
-		final GetMethod mockGetMethod = mock(GetMethod.class);
-		when(mockHttpClient.executeMethod(mockGetMethod)).thenReturn(302);
-		String fakeLocation = "http://newURL.com/";
-		when(mockGetMethod.getResponseHeader(Utils.LOCATION_HEADER))
-				.thenReturn(new Header("Location", fakeLocation));
+        // mock redirect response
+        final HttpGet mockGetMethod = mock(HttpGet.class);
+        HttpResponse response = mock(HttpResponse.class);
+        StatusLine statusLine = mock(StatusLine.class);
+        when(statusLine.getStatusCode()).thenReturn(302);
+        when(response.getStatusLine()).thenReturn(statusLine);
 
-		proxy = new HTTPProxy() {
-			private static final long serialVersionUID = 1L;
+        mockHttpClient = mock(HttpClient.class);
+        when(mockHttpClient.execute(mockGetMethod)).thenReturn(response);
+        fakeLocation = "http://newURL.com/";
 
-			@Override
-			public GetMethod getGetMethod(URL url) {
-				return mockGetMethod;
-			}
-		};
-		proxy.setHttpClient(mockHttpClient);
-		proxy.init(servletConfig);
+        when(mockGetMethod.getFirstHeader(Utils.LOCATION_HEADER))
+                .thenReturn(new BasicHeader("Location", fakeLocation));
 
-		// mock http request to proxy
-		HttpServletRequest getRequest = mock(HttpServletRequest.class);
-		when(getRequest.getParameterMap()).thenReturn(parameters);
-		when(getRequest.getHeaderNames()).thenReturn(
-				Collections.enumeration(headers));
-		when(getRequest.getRequestURL()).thenReturn(
-				new StringBuffer("http://proxy.com/http-proxy/proxy"));
-		// mock http response object
-		HttpServletResponse getResponse = mock(HttpServletResponse.class);
-		final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
-		when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
 
-		proxy.doGet(getRequest, getResponse);
-		verify(getResponse).sendRedirect(
-				"http://proxy.com/http-proxy/proxy?url="
-						+ URLEncoder.encode(fakeLocation, "UTF-8"));
-		final byte[] data = servletOutputStream.baos.toByteArray();
-		Assert.assertNotNull(data);
-		Assert.assertTrue(data.length == 0);
-	}
+            @Override
+            public HttpGet getGetMethod(URL url) {
+                return mockGetMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        // mock http request to proxy
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getParameterMap()).thenReturn(parameters);
+        when(getRequest.getHeaderNames()).thenReturn(
+                Collections.enumeration(headers));
+        when(getRequest.getRequestURL()).thenReturn(
+                new StringBuffer("http://proxy.com/http-proxy/proxy"));
+        // mock http response object
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+        final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
+        when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
+
+        proxy.doGet(getRequest, getResponse);
+        verify(getResponse).sendRedirect(
+                "http://proxy.com/http-proxy/proxy?url="
+                        + URLEncoder.encode(fakeLocation, "UTF-8"));
+        final byte[] data = servletOutputStream.baos.toByteArray();
+        Assert.assertNotNull(data);
+        Assert.assertTrue(data.length == 0);
+    }
+
+    @Test
+    public void testPost() throws Exception {
+
+        // mock post response
+        final HttpPost mockPostMethod = mock(HttpPost.class);
+        HttpResponse response = mock(HttpResponse.class);
+        StatusLine statusLine = mock(StatusLine.class);
+        when(statusLine.getStatusCode()).thenReturn(200);
+        when(response.getStatusLine()).thenReturn(statusLine);
+
+        HttpEntity stringEntity = new StringEntity("user created");
+        when(response.getEntity()).thenReturn(stringEntity);
+        when(mockPostMethod.getAllHeaders()).thenReturn(new Header[]{});
+        mockHttpClient = mock(HttpClient.class);
+        when(mockHttpClient.execute(mockPostMethod)).thenReturn(response);
+
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public HttpPost getPostMethod(URL url) {
+                return mockPostMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        // mock http request to proxy
+        HttpServletRequest postRequest = mock(HttpServletRequest.class);
+        when(postRequest.getQueryString()).thenReturn("url=https://jsonplaceholder.typicode.com/test/createUser");
+        when(postRequest.getMethod()).thenReturn("post");
+
+        Enumeration<Object> enumeration = Collections.enumeration(Collections.emptyList());
+        when(postRequest.getHeaderNames()).thenReturn(enumeration);
+
+        ServletInputStream stream = mock(ServletInputStream.class);
+        when(postRequest.getInputStream()).thenReturn(stream);
+
+        // mock http response object
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+        final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
+        when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
+
+        proxy.doPost(postRequest, getResponse);
+        verify(getResponse).setStatus(200);
+        final byte[] data = servletOutputStream.baos.toByteArray();
+        Assert.assertNotNull(data);
+        Assert.assertTrue(data.length != 0);
+    }
 
 }
