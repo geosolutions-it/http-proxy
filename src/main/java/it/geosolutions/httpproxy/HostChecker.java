@@ -26,7 +26,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.commons.httpclient.HttpMethod;
+import org.apache.http.client.methods.HttpRequestBase;
 
 /**
  * HostChecker class for host check.
@@ -72,7 +72,7 @@ public class HostChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpMethod method) throws IOException {
+    public void onRemoteResponse(HttpRequestBase method) throws IOException {
     }
 
     /*
