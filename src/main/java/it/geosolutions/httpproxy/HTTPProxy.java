@@ -156,30 +156,36 @@ public class HTTPProxy extends HttpServlet {
         if (httpClient != null)
             return httpClient;
 
-        HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        if (httpHost != null) {
-            HttpRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpHost) {
-                @Override
-                public HttpRoute determineRoute(
-                        final HttpHost host,
-                        final HttpRequest request,
-                        final HttpContext context) throws HttpException {
-                    String hostname = host.getHostName();
-                    if (isNonProxyHost(hostname)) {
-                        // Return direct route
-                        return new HttpRoute(host);
+        final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
+        LOGGER.debug("http host: " + httpHost);
+        final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
+        LOGGER.debug("https host: " + httpsHost);
+
+        HttpRoutePlanner routePlanner = new HttpRoutePlanner() {
+            public HttpRoute determineRoute(
+                    HttpHost target,
+                    HttpRequest request,
+                    HttpContext context) {
+                LOGGER.info("target host: " + target);
+                if (isNonProxyHost(target.getHostName())) {
+                    LOGGER.info("Returning direct route");
+                    // Return direct route
+                    return new HttpRoute(target);
+                } else {
+                    LOGGER.info("Returning proxy route");
+                    if (target.getSchemeName().equals("http")) {
+                        LOGGER.debug("Setting http scheme");
+                        return new HttpRoute(target, null, httpHost,
+                                false);
+                    } else {
+                        LOGGER.debug("Setting https scheme");
+                        return new HttpRoute(target, null, httpsHost,
+                                true);
                     }
-                    return super.determineRoute(host, request, context);
                 }
-            };
-            clientBuilder.setRoutePlanner(routePlanner);
-        }
-
-        HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        if (httpsHost != null) {
-            clientBuilder.setProxy(httpsHost);
-        }
-
+            }
+        };
+        clientBuilder.setRoutePlanner(routePlanner);
         clientBuilder.useSystemProperties();
         clientBuilder.setConnectionManager(connectionManager);
 
@@ -209,13 +215,15 @@ public class HTTPProxy extends HttpServlet {
             if (nonProxyHostProp.endsWith("\"")) {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
+            LOGGER.info("http.nonProxyHosts: " + nonProxyHostProp);
             StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
             while (tokenizer.hasMoreTokens()) {
                 String str = tokenizer.nextToken().trim();
-                str = str.replace("*", "\\w*");
+                str = str.replace("*", "[\\w-]*");
                 Pattern pattern = Pattern.compile(str);
                 Matcher matcher = pattern.matcher(host);
                 if (matcher.matches()) {
+                    LOGGER.info("Non proxy host matched for: " + str);
                     isNonProxyHost = true;
                     break;
                 }
