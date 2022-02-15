@@ -152,26 +152,60 @@ public class HTTPProxy extends HttpServlet {
         callbacks.add(new HostChecker(proxyConfig));
     }
 
+    /**
+     * Creates the HttpClient
+     * @return HttpClient
+     */
     public HttpClient createHttpClient() {
         if (httpClient != null)
             return httpClient;
 
         final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        LOGGER.debug("http host: " + httpHost);
+        LOGGER.debug("HTTP proxy host: " + httpHost);
         final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        LOGGER.debug("https host: " + httpsHost);
+        LOGGER.debug("HTTPS proxy host: " + httpsHost);
 
-        HttpRoutePlanner routePlanner = new HttpRoutePlanner() {
+        HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
+
+        clientBuilder.setRoutePlanner(routePlanner);
+        clientBuilder.useSystemProperties();
+        clientBuilder.setConnectionManager(connectionManager);
+
+        LOGGER.info("HTTP Client created");
+        return clientBuilder.build();
+    }
+
+    private HttpHost getHost(String proxyHostKey, String proxyPortKey) {
+        HttpHost httpHost = null;
+        String proxyHost = System.getProperty(proxyHostKey);
+        if (proxyHost != null && !proxyHost.isEmpty()) {
+            int proxyPort = 80;
+            proxyPort = (System.getProperty(proxyPortKey) != null ?
+                    Integer.parseInt(System.getProperty(proxyPortKey)) : proxyPort);
+            httpHost = new HttpHost(proxyHost, proxyPort);
+        }
+        return httpHost;
+    }
+
+    /**
+     * Returns the HttpRoutePlanner based on the target host http scheme
+     * @param httpHost
+     * @param httpsHost
+     * @return HttpRoutePlanner
+     */
+    private HttpRoutePlanner getRoutePlanner(final HttpHost httpHost, final HttpHost httpsHost) {
+        return new HttpRoutePlanner() {
             public HttpRoute determineRoute(
                     HttpHost target,
                     HttpRequest request,
                     HttpContext context) {
-                LOGGER.info("target host: " + target);
+                LOGGER.info("HTTP proxy target host: " + target);
                 if (isNonProxyHost(target.getHostName())) {
                     LOGGER.info("Returning direct route");
                     // Return direct route
                     return new HttpRoute(target);
                 } else {
+                    // Return the proxy route
                     LOGGER.info("Returning proxy route");
                     if (target.getSchemeName().equals("http")) {
                         LOGGER.debug("Setting http scheme");
@@ -185,24 +219,6 @@ public class HTTPProxy extends HttpServlet {
                 }
             }
         };
-        clientBuilder.setRoutePlanner(routePlanner);
-        clientBuilder.useSystemProperties();
-        clientBuilder.setConnectionManager(connectionManager);
-
-        LOGGER.info("HTTP Client created");
-        return clientBuilder.build();
-    }
-
-    HttpHost getHost(String proxyHostKey, String proxyPortKey) {
-        HttpHost httpHost = null;
-        String proxyHost = System.getProperty(proxyHostKey);
-        if (proxyHost != null && !proxyHost.isEmpty()) {
-            int proxyPort = 80;
-            proxyPort = (System.getProperty(proxyPortKey) != null ?
-                    Integer.parseInt(System.getProperty(proxyPortKey)) : proxyPort);
-            httpHost = new HttpHost(proxyHost, proxyPort);
-        }
-        return httpHost;
     }
 
     private Boolean isNonProxyHost(String host) {
@@ -215,7 +231,7 @@ public class HTTPProxy extends HttpServlet {
             if (nonProxyHostProp.endsWith("\"")) {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
-            LOGGER.info("http.nonProxyHosts: " + nonProxyHostProp);
+            LOGGER.info("http.nonProxyHosts value: " + nonProxyHostProp);
             StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
             while (tokenizer.hasMoreTokens()) {
                 String str = tokenizer.nextToken().trim();
