@@ -152,34 +152,22 @@ public class HTTPProxy extends HttpServlet {
         callbacks.add(new HostChecker(proxyConfig));
     }
 
+    /**
+     * Creates the HttpClient
+     * @return HttpClient
+     */
     public HttpClient createHttpClient() {
         if (httpClient != null)
             return httpClient;
 
-        HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        if (httpHost != null) {
-            HttpRoutePlanner routePlanner = new DefaultProxyRoutePlanner(httpHost) {
-                @Override
-                public HttpRoute determineRoute(
-                        final HttpHost host,
-                        final HttpRequest request,
-                        final HttpContext context) throws HttpException {
-                    String hostname = host.getHostName();
-                    if (isNonProxyHost(hostname)) {
-                        // Return direct route
-                        return new HttpRoute(host);
-                    }
-                    return super.determineRoute(host, request, context);
-                }
-            };
-            clientBuilder.setRoutePlanner(routePlanner);
-        }
+        final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
+        LOGGER.debug("HTTP proxy host: " + httpHost);
+        final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
+        LOGGER.debug("HTTPS proxy host: " + httpsHost);
 
-        HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        if (httpsHost != null) {
-            clientBuilder.setProxy(httpsHost);
-        }
+        HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
 
+        clientBuilder.setRoutePlanner(routePlanner);
         clientBuilder.useSystemProperties();
         clientBuilder.setConnectionManager(connectionManager);
 
@@ -187,7 +175,7 @@ public class HTTPProxy extends HttpServlet {
         return clientBuilder.build();
     }
 
-    HttpHost getHost(String proxyHostKey, String proxyPortKey) {
+    private HttpHost getHost(String proxyHostKey, String proxyPortKey) {
         HttpHost httpHost = null;
         String proxyHost = System.getProperty(proxyHostKey);
         if (proxyHost != null && !proxyHost.isEmpty()) {
@@ -197,6 +185,40 @@ public class HTTPProxy extends HttpServlet {
             httpHost = new HttpHost(proxyHost, proxyPort);
         }
         return httpHost;
+    }
+
+    /**
+     * Returns the HttpRoutePlanner based on the target host http scheme
+     * @param httpHost
+     * @param httpsHost
+     * @return HttpRoutePlanner
+     */
+    private HttpRoutePlanner getRoutePlanner(final HttpHost httpHost, final HttpHost httpsHost) {
+        return new HttpRoutePlanner() {
+            public HttpRoute determineRoute(
+                    HttpHost target,
+                    HttpRequest request,
+                    HttpContext context) {
+                LOGGER.info("HTTP proxy target host: " + target);
+                if (isNonProxyHost(target.getHostName())) {
+                    LOGGER.info("Returning direct route");
+                    // Return direct route
+                    return new HttpRoute(target);
+                } else {
+                    // Return the proxy route
+                    LOGGER.info("Returning proxy route");
+                    if (target.getSchemeName().equals("http")) {
+                        LOGGER.debug("Setting http scheme");
+                        return new HttpRoute(target, null, httpHost,
+                                false);
+                    } else {
+                        LOGGER.debug("Setting https scheme");
+                        return new HttpRoute(target, null, httpsHost,
+                                true);
+                    }
+                }
+            }
+        };
     }
 
     private Boolean isNonProxyHost(String host) {
@@ -209,13 +231,15 @@ public class HTTPProxy extends HttpServlet {
             if (nonProxyHostProp.endsWith("\"")) {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
+            LOGGER.info("http.nonProxyHosts value: " + nonProxyHostProp);
             StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
             while (tokenizer.hasMoreTokens()) {
                 String str = tokenizer.nextToken().trim();
-                str = str.replace("*", "\\w*");
+                str = str.replace("*", "[\\w-]*");
                 Pattern pattern = Pattern.compile(str);
                 Matcher matcher = pattern.matcher(host);
                 if (matcher.matches()) {
+                    LOGGER.info("Non proxy host matched for: " + str);
                     isNonProxyHost = true;
                     break;
                 }
