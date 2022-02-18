@@ -22,7 +22,6 @@ import java.io.File;
 import java.io.IOException;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 
 public class HttpProxyIntegrationTests {
 
@@ -109,10 +108,10 @@ public class HttpProxyIntegrationTests {
     }
 
     /**
-     * Validates that HTTP POST request is correctly handled by the HTTP Proxy
+     * Validates that HTTP POST request is correctly handled by the HTTP Proxy using text/xml content type
      */
     @Test
-    public void testPOSTUsingWireMock() throws IOException {
+    public void testPOSTUsingWireMockXML() throws IOException {
 
         String requestBody = "<user><userId>5</userId><userName>Jane Doe</userName></user>";
         wireMockRule1.addStubMapping(
@@ -133,6 +132,45 @@ public class HttpProxyIntegrationTests {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpPost);
+            Assert.assertEquals("text/xml", httpResponse.getFirstHeader("Content-Type").getValue());
+            Assert.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
+            wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
+        }
+    }
+
+    /**
+     * Validates that HTTP POST request is correctly handled by the HTTP Proxy using application/json content type
+     */
+    @Test
+    public void testPOSTUsingWireMockJSON() throws IOException {
+
+        String requestBody = "{\n" +
+                "  \"user\": {\n" +
+                "    \"userId\": 5,\n" +
+                "    \"userName\": \"Jane Doe\"\n" +
+                "  }\n" +
+                "}";
+        wireMockRule1.addStubMapping(
+                stubFor(
+                        post(urlEqualTo("/geostore/users/create"))
+                                .withRequestBody(equalToJson(requestBody))
+                                .willReturn(
+                                        aResponse()
+                                                .withStatus(201)
+                                                .withHeader("Content-Type", "application/json")
+                                                .withBody("{\n" +
+                                                        "  \"response\": 5\n" +
+                                                        "}"))));
+
+        String url = "http://localhost:" + wireMockRule1.port() + "/geostore/users/create";
+        String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
+        HttpPost httpPost = new HttpPost(proxyURL);
+        StringEntity stringEntity = new StringEntity(requestBody);
+        httpPost.setEntity(stringEntity);
+
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpResponse httpResponse = httpClient.execute(httpPost);
+            Assert.assertEquals("application/json", httpResponse.getFirstHeader("Content-Type").getValue());
             Assert.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
             wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
         }

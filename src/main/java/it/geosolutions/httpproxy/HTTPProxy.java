@@ -751,26 +751,26 @@ public class HTTPProxy extends HttpServlet {
             // Pass response headers back to the client
             // /////////////////////////////////////////////
 
-            Header[] headerArrayResponse = httpMethodProxyRequest.getAllHeaders();
+            if(response.getAllHeaders() != null) {
+                Header[] headerArrayResponse = response.getAllHeaders();
 
-            for (Header header : headerArrayResponse) {
+                for (Header header : headerArrayResponse) {
 
-                // /////////////////////////
-                // Skip GZIP Responses
-                // /////////////////////////
+                    // /////////////////////////
+                    // Skip GZIP Responses
+                    // /////////////////////////
 
-                if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_ACCEPT_ENCODING)
-                        && header.getValue().toLowerCase().contains("gzip"))
-                    continue;
-                else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_CONTENT_ENCODING)
-                        && header.getValue().toLowerCase().contains("gzip"))
-                    continue;
-                else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
-                    continue;
-//                else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_WWW_AUTHENTICATE))
-//                    continue;                
-                else
-                    httpServletResponse.setHeader(header.getName(), header.getValue());
+                    if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_ACCEPT_ENCODING)
+                            && header.getValue().toLowerCase().contains("gzip"))
+                        continue;
+                    else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_CONTENT_ENCODING)
+                            && header.getValue().toLowerCase().contains("gzip"))
+                        continue;
+                    else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
+                        continue;
+                    else
+                        httpServletResponse.setHeader(header.getName(), header.getValue());
+                }
             }
 
             // ///////////////////////////////////
