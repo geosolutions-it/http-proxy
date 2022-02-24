@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
@@ -205,6 +206,27 @@ public class HttpProxyIntegrationTests {
             wireMockRule.verify(putRequestedFor(urlEqualTo("/geostore/users/5")));
         }
     }
+
+    /**
+     * Validates that HTTP URL pot set to 80 if no port is specified
+     */
+    @Test
+    public void testHttpDefaultPort() throws IOException {
+        String urlStr = "http://localhost:" + "/geostore/users/5";
+        URL url = Utils.buildURL(urlStr);
+        Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTP_PORT);
+    }
+
+    /**
+     * Validates that HTTP URL pot set to 80 if no port is specified
+     */
+    @Test
+    public void testHttpsDefaultPort() throws IOException {
+        String urlStr = "https://localhost:" + "/geostore/users/5";
+        URL url = Utils.buildURL(urlStr);
+        Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTPS_PORT);
+    }
+
 
     @AfterClass
     public static void stopServer() {

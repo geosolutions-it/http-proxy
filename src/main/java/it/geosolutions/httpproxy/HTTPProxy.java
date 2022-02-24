@@ -305,7 +305,8 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
+                    LOGGER.info("URL port is set to : " + url.getPort());
                 }
             }
 
@@ -369,7 +370,8 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
+                    LOGGER.info("URL port is set to : " + url.getPort());
                 }
             }
 
@@ -445,7 +447,8 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
+                    LOGGER.info("URL port is set to : " + url.getPort());
                 }
             }
             if (url != null) {
@@ -516,7 +519,8 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
+                    LOGGER.info("URL port is set to : " + url.getPort());
                 }
             }
 
