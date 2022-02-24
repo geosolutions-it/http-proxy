@@ -305,7 +305,7 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
                 }
             }
 
@@ -369,7 +369,7 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
                 }
             }
 
@@ -445,7 +445,7 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
                 }
             }
             if (url != null) {
@@ -516,7 +516,7 @@ public class HTTPProxy extends HttpServlet {
                 } else if ("password".equals(key)) {
                     password = value;
                 } else if ("url".equals(key)) {
-                    url = new URL(value);
+                    url = Utils.buildURL(value);
                 }
             }
 
