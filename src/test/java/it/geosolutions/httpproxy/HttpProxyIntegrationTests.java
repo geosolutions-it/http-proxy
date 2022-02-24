@@ -212,9 +212,12 @@ public class HttpProxyIntegrationTests {
      */
     @Test
     public void testHttpDefaultPort() throws IOException {
-        String urlStr = "http://localhost:" + "/geostore/users/5";
+        String urlStr = "http://localhost/geoserver/wms?service=wms%26version=1.3.0&request=GetCapabilities";
         URL url = Utils.buildURL(urlStr);
         Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTP_PORT);
+        Assert.assertEquals(url.getProtocol(), "http");
+        Assert.assertEquals(url.getHost(), "localhost");
+        Assert.assertEquals(url.getFile(), "/geoserver/wms?service=wms%26version=1.3.0&request=GetCapabilities");
     }
 
     /**
@@ -222,9 +225,12 @@ public class HttpProxyIntegrationTests {
      */
     @Test
     public void testHttpsDefaultPort() throws IOException {
-        String urlStr = "https://localhost:" + "/geostore/users/5";
+        String urlStr = "https://georchestra.geo-solutions.it/geoserver/wms?service=WMS%26version=1.3.0&request=GetCapabilities";
         URL url = Utils.buildURL(urlStr);
         Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTPS_PORT);
+        Assert.assertEquals(url.getProtocol(), "https");
+        Assert.assertEquals(url.getHost(), "georchestra.geo-solutions.it");
+        Assert.assertEquals(url.getFile(), "/geoserver/wms?service=WMS%26version=1.3.0&request=GetCapabilities");
     }
 
 
