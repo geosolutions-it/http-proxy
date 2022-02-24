@@ -19,6 +19,8 @@
  */
 package it.geosolutions.httpproxy;
 
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -27,11 +29,13 @@ import java.util.Set;
 
 /**
  * Utility methods.
- * 
+ *
  * @author Simone Giannecchini, GeoSolutions SAS
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
 final class Utils {
+
+    private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(Utils.class);
 
     static final int DEFAULT_MAX_FILE_UPLOAD_SIZE = 5 * 1024 * 1024;
 
@@ -66,7 +70,7 @@ final class Utils {
     static final String HTTP_HEADER_CONTENT_ENCODING = "content-encoding";
 
     static final String HTTP_HEADER_TRANSFER_ENCODING = "transfer-encoding";
-    
+
     static final String HTTP_HEADER_WWW_AUTHENTICATE = "WWW-Authenticate";
 
     static final int DEFAULT_PROXY_PORT = 80;
@@ -149,10 +153,16 @@ final class Utils {
     static URL buildURL(String value) throws MalformedURLException {
         URL url = new URL(value);
 
-        if(url.getPort() == -1) {
-            if(url.toString().startsWith("https://")) {
+        if (url.getPort() == -1) {
+            if (url.getProtocol().equals("https")) {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.info("Using default HTTPS port: " + DEFAULT_HTTPS_PORT);
+                }
                 return new URL(url.getProtocol(), url.getHost(), DEFAULT_HTTPS_PORT, url.getFile());
             } else {
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.info("Using default HTTP port: " + DEFAULT_HTTP_PORT);
+                }
                 return new URL(url.getProtocol(), url.getHost(), DEFAULT_HTTP_PORT, url.getFile());
             }
         }
