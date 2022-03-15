@@ -209,12 +209,18 @@ public class HTTPProxy extends HttpServlet {
                     LOGGER.info("Returning proxy route");
                     if (target.getSchemeName().equals("http")) {
                         LOGGER.debug("Setting http scheme");
-                        return new HttpRoute(target, null, httpHost,
-                                false);
+                        if (httpHost == null)
+                            return new HttpRoute(target);
+                        else
+                            return new HttpRoute(target, null, httpHost,
+                                    false);
                     } else {
                         LOGGER.debug("Setting https scheme");
-                        return new HttpRoute(target, null, httpsHost,
-                                true);
+                        if (httpsHost == null)
+                            return new HttpRoute(target);
+                        else
+                            return new HttpRoute(target, null, httpsHost,
+                                    true);
                     }
                 }
             }
@@ -751,7 +757,7 @@ public class HTTPProxy extends HttpServlet {
             // Pass response headers back to the client
             // /////////////////////////////////////////////
 
-            if(response.getAllHeaders() != null) {
+            if (response.getAllHeaders() != null) {
                 Header[] headerArrayResponse = response.getAllHeaders();
 
                 for (Header header : headerArrayResponse) {
