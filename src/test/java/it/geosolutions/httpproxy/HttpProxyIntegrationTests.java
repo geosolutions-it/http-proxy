@@ -42,10 +42,16 @@ public class HttpProxyIntegrationTests {
 
     static Server jettyServer = null;
 
+    private static String proxyHost;
+    private static String proxyPort;
+
     @BeforeClass
     public static void startHttpProxyServer() {
 
         try {
+            // store system proxy config
+            storeProxyConfig();
+
             wireMockServer = new WireMockServer(WireMockConfiguration.wireMockConfig().dynamicPort());
             wireMockServer.start();
 
@@ -81,6 +87,14 @@ public class HttpProxyIntegrationTests {
             }
         }
 
+    }
+
+    /**
+     * store the system proxy host and port values
+     */
+    private static void storeProxyConfig() {
+        proxyHost = System.getProperty("http.proxyHost");
+        proxyPort = System.getProperty("http.proxyPort");
     }
 
     /**
@@ -208,6 +222,33 @@ public class HttpProxyIntegrationTests {
     }
 
     /**
+     * Test the request for Empty (i.e. Null) proxy configuration
+     */
+    @Test
+    public void testNullProxyConfig() throws IOException {
+
+        // remove the proxy config
+        System.setProperty("http.proxyHost", "");
+        System.setProperty("http.proxyPort", "");
+
+        wireMockRule.addStubMapping(
+                stubFor(
+                        get(urlEqualTo("/geostore/resources"))
+                                .willReturn(
+                                        aResponse()
+                                                .withStatus(200))));
+
+        String url = "http://localhost:" + wireMockRule.port() + "/geostore/resources";
+        String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
+        HttpGet httpGet = new HttpGet(proxyURL);
+        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+            HttpResponse httpResponse = httpClient.execute(httpGet);
+            Assert.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            wireMockRule.verify(getRequestedFor(urlEqualTo("/geostore/resources")));
+        }
+    }
+
+    /**
      * Validates that HTTP URL pot set to 80 if no port is specified
      */
     @Test
@@ -237,10 +278,23 @@ public class HttpProxyIntegrationTests {
     @AfterClass
     public static void stopServer() {
         try {
+
+            // restore system proxy config
+            restoreProxyConfig();
+
             wireMockServer.stop();
             jettyServer.stop();
         } catch (Exception e) {
             LOGGER.error("Could not stop HTTP Proxy Server: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * restore the system proxy config
+     */
+    private static void restoreProxyConfig() {
+        System.setProperty("http.proxyHost", proxyHost);
+        System.setProperty("http.proxyPort", proxyPort);
+    }
+
 }
