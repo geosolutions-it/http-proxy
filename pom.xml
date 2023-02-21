@@ -3,7 +3,7 @@
 	<groupId>proxy</groupId>
 	<artifactId>http_proxy</artifactId>
 	<packaging>war</packaging>
-	<version>1.4-SNAPSHOT</version>
+	<version>1.5-SNAPSHOT</version>
 	<name>http_proxy</name>
 	<url>https://maven.apache.org</url>
     
