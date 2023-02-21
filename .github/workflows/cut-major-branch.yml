@@ -48,12 +48,10 @@ jobs:
           echo "creating bump changes"
           git checkout "$MAIN_BRANCH"
           mvn -q -B release:update-versions -DautoVersionSubmodules=true -DdevelopmentVersion=${NEXT}-SNAPSHOT # sets the internal verison
-          mvn -q -B versions:set-property -B -Dproperty=geostore-version -DnewVersion=${NEXT}-SNAPSHOT # sets geostore-version property
           pr_branch_name="bump-${NEXT}-${RUN_ID}"
           echo "Creating a temp PR on branch: ${pr_branch_name}"
           git checkout -b "${pr_branch_name}"
           git add pom.xml
-          git add "**/pom.xml"
           git commit -m "Bump version to ${NEXT}"
           git push origin "${pr_branch_name}"
           pr_url=$(gh pr create -B "${MAIN_BRANCH}" -H "${pr_branch_name}" --title "[github-action] Bump version to ${NEXT}" --body "This automatic pull request bumps version of ${MAIN_BRANCH} branch to ${NEXT}")
