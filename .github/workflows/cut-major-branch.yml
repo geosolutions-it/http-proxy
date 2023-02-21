@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       current-version:
-        description: Current version (e.g. 2.1)
+        description: Current version (e.g. 1.5)
         required: true
       next-version: 
-        description: Next version (e.g. 2.2). 
+        description: Next version (e.g. 1.6). 
         required: true
       main-branch: 
         description: main branch
