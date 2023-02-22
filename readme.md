@@ -7,7 +7,7 @@ It is free and Open Source, for information on the license please see the LICENS
 
 ## Release process 
 
-- [Release process](https://github.com/geosolutions-it/geostore/wiki/Release-Process)
+This Project follow the same convention of GeoStore [Release process](https://github.com/geosolutions-it/geostore/wiki/Release-Process)
 
 ## Relevant Workflows
 
