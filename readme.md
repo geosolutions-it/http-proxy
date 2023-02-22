@@ -7,7 +7,10 @@ It is free and Open Source, for information on the license please see the LICENS
 
 ## Release process 
 
-This Project follow the same convention of GeoStore [Release process](https://github.com/geosolutions-it/geostore/wiki/Release-Process)
+This Project follow the same convention of GeoStore
+
+- *Cut the major release branch* : run the [Cut release branch](https://github.com/geosolutions-it/http-proxy/actions/workflows/cut-major-branch.yml) workflow.
+- After proper tests has been done, you can create a stable version following the same steps of [Release process](https://github.com/geosolutions-it/geostore/wiki/Release-Process)
 
 ## Relevant Workflows
 
