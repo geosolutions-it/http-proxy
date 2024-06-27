@@ -50,7 +50,6 @@ import org.apache.commons.fileupload.servlet.ServletFileUpload;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -67,9 +66,9 @@ import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.ContentBody;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -86,11 +85,10 @@ public class HTTPProxy extends HttpServlet {
      */
     private static final long serialVersionUID = -4770692886388850680L;
 
-    private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(HTTPProxy.class);
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(HTTPProxy.class);
 
     /**
-     * The maximum size for uploaded files in bytes. Default value is 5MB.
+     * The maximum size for uploaded files in bytes. The Default value is 5MB.
      */
     private int maxFileUploadSize = Utils.DEFAULT_MAX_FILE_UPLOAD_SIZE;
 
@@ -106,14 +104,13 @@ public class HTTPProxy extends HttpServlet {
      */
     private HttpClient httpClient;
 
-
     /**
      * The proxy configuration.
      */
     private ProxyConfig proxyConfig;
 
     /**
-     * The proxy collbacks to provide checks.
+     * The proxy callbacks to provide checks.
      */
     private List<ProxyCallback> callbacks;
 
@@ -122,7 +119,7 @@ public class HTTPProxy extends HttpServlet {
     /**
      * Initialize the <code>ProxyServlet</code>
      *
-     * @param servletConfig The Servlet configuration passed in by the servlet conatiner
+     * @param servletConfig The Servlet configuration passed in by the servlet container
      */
     public void init(ServletConfig servletConfig) throws ServletException {
         super.init(servletConfig);
@@ -140,11 +137,12 @@ public class HTTPProxy extends HttpServlet {
         httpClient = createHttpClient();
 
         // //////////////////////////////////////////
-        // Setup the callbacks (in the future this
+        // Set up the callbacks (in the future this
         // will be a pluggable lookup).
         // //////////////////////////////////////////
 
         callbacks = new ArrayList<ProxyCallback>();
+        callbacks.add(new AuthorizationHeadersChecker(proxyConfig));
         callbacks.add(new MimeTypeChecker(proxyConfig));
         callbacks.add(new HostNameChecker(proxyConfig));
         callbacks.add(new RequestTypeChecker(proxyConfig));
@@ -161,9 +159,9 @@ public class HTTPProxy extends HttpServlet {
             return httpClient;
 
         final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        LOGGER.debug("HTTP proxy host: " + httpHost);
+        LOGGER.debug("HTTP proxy host: {}", httpHost);
         final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        LOGGER.debug("HTTPS proxy host: " + httpsHost);
+        LOGGER.debug("HTTPS proxy host: {}", httpsHost);
 
         HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
 
@@ -199,7 +197,7 @@ public class HTTPProxy extends HttpServlet {
                     HttpHost target,
                     HttpRequest request,
                     HttpContext context) {
-                LOGGER.info("HTTP proxy target host: " + target);
+                LOGGER.info("HTTP proxy target host: {}", target);
                 if (isNonProxyHost(target.getHostName())) {
                     LOGGER.info("Returning direct route");
                     // Return direct route
@@ -242,7 +240,7 @@ public class HTTPProxy extends HttpServlet {
             if (nonProxyHostProp.endsWith("\"")) {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
-            LOGGER.info("http.nonProxyHosts value: " + nonProxyHostProp);
+            LOGGER.info("http.nonProxyHosts value: {}", nonProxyHostProp);
             StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
             while (tokenizer.hasMoreTokens()) {
                 String str = tokenizer.nextToken().trim();
@@ -250,7 +248,7 @@ public class HTTPProxy extends HttpServlet {
                 Pattern pattern = Pattern.compile(str);
                 Matcher matcher = pattern.matcher(host);
                 if (matcher.matches()) {
-                    LOGGER.info("Non proxy host matched for: " + str);
+                    LOGGER.info("Non proxy host matched for: {}", str);
                     isNonProxyHost = true;
                     break;
                 }
@@ -262,13 +260,16 @@ public class HTTPProxy extends HttpServlet {
     /**
      * @param request
      * @param response
+     * @return
      * @throws IOException
      */
-    void onInit(HttpServletRequest request, HttpServletResponse response, URL url)
+    HttpServletRequest onInit(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
         for (ProxyCallback callback : callbacks) {
-            callback.onRequest(request, response, url);
+            request = callback.onRequest(request, response, url);
         }
+
+        return request;
     }
 
     /**
@@ -322,7 +323,7 @@ public class HTTPProxy extends HttpServlet {
 
             if (url != null) {
 
-                onInit(httpServletRequest, httpServletResponse, url);
+                httpServletRequest = onInit(httpServletRequest, httpServletResponse, url);
 
                 // //////////////////////////////
                 // Create a GET request
@@ -339,9 +340,7 @@ public class HTTPProxy extends HttpServlet {
                 // //////////////////////////////
                 // Execute the proxy request
                 // //////////////////////////////
-
-                this.executeProxyRequest(getMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password);
+                this.executeProxyRequest(getMethodProxyRequest, httpServletRequest, httpServletResponse, user, password);
             }
 
         } catch (HttpErrorException ex) {
@@ -386,7 +385,7 @@ public class HTTPProxy extends HttpServlet {
 
             if (url != null) {
 
-                onInit(httpServletRequest, httpServletResponse, url);
+                httpServletRequest = onInit(httpServletRequest, httpServletResponse, url);
 
                 // /////////////////////////////////
                 // Create a standard POST request
@@ -400,9 +399,8 @@ public class HTTPProxy extends HttpServlet {
 
                 setProxyRequestHeaders(url, httpServletRequest, postMethodProxyRequest);
 
-
                 // //////////////////////////////////////////////////
-                // Check if this is a mulitpart (file upload) POST
+                // Check if this is multipart (file upload) POST
                 // //////////////////////////////////////////////////
 
                 if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
@@ -414,9 +412,7 @@ public class HTTPProxy extends HttpServlet {
                 // ///////////////////////////////
                 // Execute the proxy request
                 // ///////////////////////////////
-                this.executeProxyRequest(postMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password);
-
+                this.executeProxyRequest(postMethodProxyRequest, httpServletRequest, httpServletResponse, user, password);
             }
 
         } catch (HttpErrorException ex) {
@@ -461,7 +457,7 @@ public class HTTPProxy extends HttpServlet {
             }
             if (url != null) {
 
-                onInit(httpServletRequest, httpServletResponse, url);
+                httpServletRequest = onInit(httpServletRequest, httpServletResponse, url);
 
                 // ////////////////////////////////
                 // Create a standard PUT request
@@ -476,9 +472,8 @@ public class HTTPProxy extends HttpServlet {
                 setProxyRequestHeaders(url, httpServletRequest, putMethodProxyRequest);
 
                 // //////////////////////////////////////////////////
-                // Check if this is a mulitpart (file upload) PUT
+                // Check if this is multipart (file upload) PUT
                 // //////////////////////////////////////////////////
-
                 if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
                     this.handleMultipart(putMethodProxyRequest, httpServletRequest);
                 } else {
@@ -488,10 +483,7 @@ public class HTTPProxy extends HttpServlet {
                 // ////////////////////////////////
                 // Execute the proxy request
                 // ////////////////////////////////
-
-                this.executeProxyRequest(putMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password);
-
+                this.executeProxyRequest(putMethodProxyRequest, httpServletRequest, httpServletResponse, user, password);
             }
 
         } catch (HttpErrorException ex) {
@@ -533,7 +525,7 @@ public class HTTPProxy extends HttpServlet {
 
             if (url != null) {
 
-                onInit(httpServletRequest, httpServletResponse, url);
+                httpServletRequest = onInit(httpServletRequest, httpServletResponse, url);
 
                 // ////////////////////////////////
                 // Create a standard DELETE request
@@ -550,10 +542,7 @@ public class HTTPProxy extends HttpServlet {
                 // ////////////////////////////////
                 // Execute the proxy request
                 // ////////////////////////////////
-
-                this.executeProxyRequest(deleteMethodProxyRequest, httpServletRequest,
-                        httpServletResponse, user, password);
-
+                this.executeProxyRequest(deleteMethodProxyRequest, httpServletRequest, httpServletResponse, user, password);
             }
 
         } catch (HttpErrorException ex) {
@@ -566,8 +555,8 @@ public class HTTPProxy extends HttpServlet {
     /**
      * Sets up the given {@link PostMethod} to send the same multipart POST data as was sent in the given {@link HttpServletRequest}
      *
-     * @param postMethodProxyRequest The {@link PostMethod} that we are configuring to send a multipart POST request
-     * @param httpServletRequest     The {@link HttpServletRequest} that contains the mutlipart POST data to be sent via the {@link PostMethod}
+     * @param methodProxyRequest The {@link PostMethod} that we are configuring to send a multipart POST request
+     * @param httpServletRequest     The {@link HttpServletRequest} that contains the multipart POST data to be sent via the {@link PostMethod}
      */
     private void handleMultipart(HttpRequestBase methodProxyRequest,
                                  HttpServletRequest httpServletRequest) throws ServletException {
@@ -653,7 +642,7 @@ public class HTTPProxy extends HttpServlet {
     /**
      * Sets up the given {@link PostMethod} to send the same standard POST data as was sent in the given {@link HttpServletRequest}
      *
-     * @param postMethodProxyRequest The {@link PostMethod} that we are configuring to send a standard POST request
+     * @param methodProxyRequest The {@link PostMethod} that we are configuring to send a standard POST request
      * @param httpServletRequest     The {@link HttpServletRequest} that contains the POST data to be sent via the {@link PostMethod}
      * @throws IOException
      */
@@ -676,8 +665,10 @@ public class HTTPProxy extends HttpServlet {
      * Executes the {@link HttpMethod} passed in and sends the proxy response back to the client via the given {@link HttpServletResponse}
      *
      * @param httpMethodProxyRequest An object representing the proxy request to be made
+     * @param httpServletRequest
      * @param httpServletResponse    An object by which we can send the proxied response back to the client
-     * @param digest
+     * @param user
+     * @param password
      * @throws ServletException Can be thrown to indicate that another error has occurred
      */
     private void executeProxyRequest(HttpRequestBase httpMethodProxyRequest,
@@ -732,7 +723,7 @@ public class HTTPProxy extends HttpServlet {
 
                 String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, "UTF-8");
                 httpServletResponse.sendRedirect(redirectURL);
-                LOGGER.info("redirected to:" + redirectURL);
+                LOGGER.info("redirected to:{}", redirectURL);
                 return;
 
             } else if (getStatusCode(response) == HttpServletResponse.SC_NOT_MODIFIED) {
@@ -825,7 +816,7 @@ public class HTTPProxy extends HttpServlet {
     }
 
     /**
-     * Retrieves all of the headers from the servlet request and sets them on the proxy request
+     * Retrieves all the headers from the servlet request and sets them on the proxy request
      *
      * @param httpServletRequest     The request object representing the client's request to the servlet engine
      * @param httpMethodProxyRequest The request that we are about to send to the proxy host
@@ -855,7 +846,7 @@ public class HTTPProxy extends HttpServlet {
 
             // ////////////////////////////////////////////////////////////////////////
             // As per the Java Servlet API 2.5 documentation:
-            // Some headers, such as Accept-Language can be sent by clients
+            // Some headers, such as Accept-Language, can be sent by clients
             // as several headers each with a different value rather than
             // sending the header as a comma separated list.
             // Thus, we get an Enumeration of the header values sent by the client

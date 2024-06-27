@@ -92,7 +92,7 @@
 						<configuration>
 							<packaging>jar</packaging>
 							<generatePom>true</generatePom>
-                                                        <pomFile>${basedir}/pom.xml</pomFile>
+							<pomFile>${basedir}/pom.xml</pomFile>
 							<repositoryId>geosolutions</repositoryId>
 							<url>${project.distributionManagement.repository.url}</url>
 							<artifactId>${project.artifactId}</artifactId>
@@ -142,8 +142,16 @@
 				  <tagNameFormat>v@{project.version}</tagNameFormat>
 				</configuration>
 			</plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>8</source>
+                    <target>8</target>
+                </configuration>
+            </plugin>
 
-		</plugins>
+        </plugins>
 		<extensions>
 			<extension>
 				<groupId>org.apache.maven.wagon</groupId>
@@ -239,7 +247,6 @@
 				<version>1.9.5</version>
 				<scope>test</scope>
 			</dependency>
-
 
 			<dependency>
 				<groupId>com.github.tomakehurst</groupId>

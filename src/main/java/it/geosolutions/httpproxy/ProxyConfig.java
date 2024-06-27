@@ -66,6 +66,11 @@ final class ProxyConfig {
     private Set<String> hostsWhitelist = new HashSet<String>();
 
     /**
+     * A list of auth headers names that won't be forwarded by the Proxy
+     */
+    private Set<String> disallowedAuthHeaders = new HashSet<String>();
+
+    /**
      * The servlet context
      */
     private ServletContext context;
@@ -117,7 +122,7 @@ final class ProxyConfig {
         Properties props = propertiesLoader();
 
         // ////////////////////////////////////////////////////////////
-        // Load proxy configuration white lists from properties file
+        // Load proxy configuration whitelists from properties file
         // ////////////////////////////////////////////////////////////
 
         if (props != null) {
@@ -136,6 +141,10 @@ final class ProxyConfig {
             p = Utils.parseWhiteList(props.getProperty("hostsWhitelist"));
             if (p != null)
                 this.setHostsWhitelist(p);
+
+            p = Utils.parseWhiteList(props.getProperty("disallowedAuthHeadersNames"));
+            if (p != null)
+                this.setDisallowedAuthHeaders(p);
 
             // ////////////////////////////////////////
             // Read various request type properties
@@ -430,6 +439,21 @@ final class ProxyConfig {
     }
 
     /**
+     * @return the hostsWhitelist
+     */
+    public Set<String> getDisallowedAuthHeaders() {
+        Properties props = propertiesLoader();
+
+        if (props != null) {
+            Set<String> set = Utils.parseWhiteList(props.getProperty("disallowedAuthHeaders"));
+            if (set != null)
+                this.setDisallowedAuthHeaders(set);
+        }
+
+        return disallowedAuthHeaders;
+    }
+
+    /**
      * @param hostsWhitelist the hostsWhitelist to set
      */
     public void setHostsWhitelist(Set<String> hostsWhitelist) {
@@ -478,4 +502,10 @@ final class ProxyConfig {
 		this.defaultStreamByteSize = defaultStreamByteSize;
 	}
 
+    /**
+     * @param disallowedAuthHeaders the disallowedAuthHeaders to set
+     */
+    public void setDisallowedAuthHeaders(Set<String> disallowedAuthHeaders) {
+        this.disallowedAuthHeaders = disallowedAuthHeaders;
+    }
 }

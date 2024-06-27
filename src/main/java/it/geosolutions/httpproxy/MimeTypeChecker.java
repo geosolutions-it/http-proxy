@@ -51,8 +51,9 @@ public class MimeTypeChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
-    public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
+    public HttpServletRequest onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
+        return request;
     }
 
     /*
@@ -65,8 +66,7 @@ public class MimeTypeChecker implements ProxyCallback {
 
         if (mimeTypes != null && mimeTypes.size() > 0) {
             Header header = method.getFirstHeader("Content-type");
-            
-            
+
             if(header != null){              	
             	String contentType = header.getValue();
             	

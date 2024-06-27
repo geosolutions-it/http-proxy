@@ -49,7 +49,7 @@ public class HostNameChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
-    public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
+    public HttpServletRequest onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
         Set<String> hostNames = config.getHostnameWhitelist();
 
@@ -65,6 +65,7 @@ public class HostNameChecker implements ProxyCallback {
                         + " is not among the ones allowed for this proxy");
             }
         }
+        return request;
     }
 
     /*

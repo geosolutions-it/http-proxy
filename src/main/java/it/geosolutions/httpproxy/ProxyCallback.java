@@ -36,10 +36,11 @@ public interface ProxyCallback {
 
     /**
      * First to be called, can be used to initialize the callback status and disallow certain requests by throwing an {@link HttpErrorException}
-     * 
+     *
+     * @return
      * @throws IOException
      */
-    void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
+    HttpServletRequest onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException;
 
     /**
