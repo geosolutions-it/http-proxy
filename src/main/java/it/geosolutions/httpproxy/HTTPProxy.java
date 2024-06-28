@@ -273,12 +273,12 @@ public class HTTPProxy extends HttpServlet {
     }
 
     /**
-     * @param method
+     * @param response
      * @throws IOException
      */
-    void onRemoteResponse(HttpRequestBase method) throws IOException {
+    void onRemoteResponse(HttpResponse response) throws IOException {
         for (ProxyCallback callback : callbacks) {
-            callback.onRemoteResponse(method);
+            callback.onRemoteResponse(response);
         }
     }
 
@@ -694,7 +694,7 @@ public class HTTPProxy extends HttpServlet {
 
             HttpResponse response = httpClient.execute(httpMethodProxyRequest);
 
-            onRemoteResponse(httpMethodProxyRequest);
+            onRemoteResponse(response);
 
             // ////////////////////////////////////////////////////////////////////////////////
             // Check if the proxy response is a redirect

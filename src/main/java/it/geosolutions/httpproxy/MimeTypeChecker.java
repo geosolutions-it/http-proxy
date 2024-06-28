@@ -27,7 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.http.Header;
-import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.HttpResponse;
 
 /**
  * MimeTypeChecker class for the mimetype check.
@@ -61,11 +61,11 @@ public class MimeTypeChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpResponse response) throws IOException {
         Set<String> mimeTypes = config.getMimetypeWhitelist();
 
         if (mimeTypes != null && mimeTypes.size() > 0) {
-            Header header = method.getFirstHeader("Content-type");
+            Header header = response.getFirstHeader("Content-type");
 
             if(header != null){              	
             	String contentType = header.getValue();
@@ -81,8 +81,6 @@ public class MimeTypeChecker implements ProxyCallback {
                             + " is not among the ones allowed for this proxy");
                 }
             }
-
-
         }
     }
 
