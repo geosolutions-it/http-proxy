@@ -26,7 +26,7 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.HttpResponse;
 
 /**
  * MethodsChecker class for http methods check.
@@ -73,7 +73,7 @@ public class MethodsChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpResponse response) throws IOException {
     }
 
     /*
