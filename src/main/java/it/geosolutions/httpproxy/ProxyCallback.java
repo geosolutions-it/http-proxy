@@ -46,7 +46,7 @@ public interface ProxyCallback {
     /**
      * Second to be called, can be used to check the remote server response
      * 
-     * @param method
+     * @param response
      * @throws IOException
      */
     void onRemoteResponse(HttpResponse response) throws IOException;

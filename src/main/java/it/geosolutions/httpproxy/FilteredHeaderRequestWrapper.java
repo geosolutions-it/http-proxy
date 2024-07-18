@@ -1,5 +1,8 @@
 package it.geosolutions.httpproxy;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletRequestWrapper;
 import java.util.Collections;
@@ -11,8 +14,8 @@ import java.util.Set;
  * Headers listed in the disallowedHeaders set will be removed from the request.
  */
 public class FilteredHeaderRequestWrapper extends HttpServletRequestWrapper {
-
     private Set<String> disallowedHeaders;
+    private static final Logger LOGGER = LoggerFactory.getLogger(FilteredHeaderRequestWrapper.class);
 
     /**
      * Constructs a FilteredHeaderRequestWrapper instance.
@@ -23,6 +26,7 @@ public class FilteredHeaderRequestWrapper extends HttpServletRequestWrapper {
     public FilteredHeaderRequestWrapper(HttpServletRequest request, Set<String> disallowedHeaders) {
         super(request);
         this.disallowedHeaders = disallowedHeaders;
+        LOGGER.debug("FilteredHeaderRequestWrapper created with {} disallowed headers", disallowedHeaders.size());
     }
 
     /**
@@ -34,10 +38,14 @@ public class FilteredHeaderRequestWrapper extends HttpServletRequestWrapper {
      */
     @Override
     public String getHeader(String name) {
+        LOGGER.debug("Getting header: {}", name);
         if (disallowedHeaders.contains(name.toLowerCase())) {
+            LOGGER.debug("Header '{}' is disallowed, returning null", name);
             return null; // Return null to remove the header
         }
-        return super.getHeader(name);
+        String headerValue = super.getHeader(name);
+        LOGGER.debug("Header '{}' value: {}", name, headerValue);
+        return headerValue;
     }
 
     /**
@@ -49,9 +57,13 @@ public class FilteredHeaderRequestWrapper extends HttpServletRequestWrapper {
      */
     @Override
     public Enumeration<String> getHeaders(String name) {
+        LOGGER.debug("Getting headers for: {}", name);
         if (disallowedHeaders.contains(name.toLowerCase())) {
+            LOGGER.debug("Header '{}' is disallowed, returning empty enumeration", name);
             return Collections.emptyEnumeration(); // Return empty enumeration to remove the header
         }
-        return super.getHeaders(name);
+        Enumeration<String> headers = super.getHeaders(name);
+        LOGGER.debug("Retrieved headers for '{}'. Has elements: {}", name, headers.hasMoreElements());
+        return headers;
     }
 }

@@ -2,75 +2,92 @@ package it.geosolutions.httpproxy;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URL;
+import java.util.Enumeration;
 import java.util.Set;
 
-/**
- * AuthorizationHeadersChecker class for the authorization check.
- *
- * @author Alessio Fabiani - GeoSolutions
- *
- */
 public class AuthorizationHeadersChecker implements ProxyCallback {
 
-    ProxyConfig config;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AuthorizationHeadersChecker.class);
 
-    /**
-     * @param config
-     */
+    private ProxyConfig config;
+
     public AuthorizationHeadersChecker(ProxyConfig config) {
         this.config = config;
+        LOGGER.debug("AuthorizationHeadersChecker initialized with config: {}", config);
     }
 
-    /**
-     * First to be called, can be used to initialize the callback status and disallow certain requests by throwing an {@link HttpErrorException}
-     *
-     * @param request
-     * @param response
-     * @param url
-     * @return
-     * @throws IOException
-     */
     @Override
     public HttpServletRequest onRequest(HttpServletRequest request, HttpServletResponse response, URL url) throws IOException {
-        return new FilteredHeaderRequestWrapper(request, config.getDisallowedAuthHeaders());
+        LOGGER.debug("onRequest called for URL: {}", url);
+
+        Set<String> disallowedHeaders = config.getDisallowedAuthHeaders();
+        LOGGER.debug("Disallowed headers: {}", disallowedHeaders);
+
+        LOGGER.debug("Original request headers:");
+        dumpHeaders(request);
+
+        HttpServletRequest filteredRequest = new FilteredHeaderRequestWrapper(request, disallowedHeaders);
+
+        LOGGER.debug("Filtered request headers:");
+        dumpHeaders(filteredRequest);
+
+        return filteredRequest;
     }
 
-    /**
-     * Second to be called, can be used to check the remote server response
-     *
-     * @param method
-     * @throws IOException
-     */
     @Override
     public void onRemoteResponse(HttpResponse response) throws IOException {
+        LOGGER.debug("onRemoteResponse called");
+
         Set<String> disallowedAuthHeaders = config.getDisallowedAuthHeaders();
+        LOGGER.debug("Disallowed auth headers: {}", disallowedAuthHeaders);
+
+        LOGGER.debug("Original remote response headers:");
+        dumpHeaders(response);
 
         if (disallowedAuthHeaders != null && !disallowedAuthHeaders.isEmpty()) {
-            // Copy headers from remote response to the client response, excluding disallowed headers
             Header[] headers = response.getAllHeaders();
             if (headers != null) {
                 for (Header header : headers) {
                     String headerName = header.getName().toLowerCase();
                     if (disallowedAuthHeaders.contains(headerName)) {
+                        LOGGER.debug("Removing disallowed header: {}", header.getName());
                         response.removeHeader(header);
                     }
                 }
             }
         }
+
+        LOGGER.debug("Filtered remote response headers:");
+        dumpHeaders(response);
     }
 
-    /**
-     * Called when the request is fully proxied, can be used for cleanup actions
-     *
-     * @throws IOException
-     */
     @Override
     public void onFinish() throws IOException {
+        LOGGER.debug("onFinish called");
+    }
 
+    private void dumpHeaders(HttpServletRequest request) {
+        Enumeration<String> headerNames = request.getHeaderNames();
+        if (headerNames != null) {
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                LOGGER.debug("Header: {} = {}", name, request.getHeader(name));
+            }
+        }
+    }
+
+    private void dumpHeaders(HttpResponse response) {
+        if (response.getAllHeaders() != null) {
+            for (Header header : response.getAllHeaders()) {
+                LOGGER.debug("Header: {} = {}", header.getName(), header.getValue());
+            }
+        }
     }
 }

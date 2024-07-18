@@ -250,12 +250,12 @@ final class ProxyConfig {
                 if (LOGGER.isLoggable(Level.SEVERE))
                     LOGGER.log(Level.SEVERE, "Error loading the proxy properties file from " + path, e);
             } finally {
-                if (inputStream != null)
-                    try {
-                        inputStream.close();
-                    } catch (IOException e) {
-                        
-                    }
+                try {
+                    inputStream.close();
+                } catch (IOException e) {
+                    if (LOGGER.isLoggable(Level.SEVERE))
+                        LOGGER.log(Level.SEVERE, "Error closing the Input Stream.", e);
+                }
             }
         }
     }

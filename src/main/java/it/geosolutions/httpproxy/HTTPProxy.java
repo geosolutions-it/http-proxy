@@ -661,21 +661,13 @@ public class HTTPProxy extends HttpServlet {
         }
     }
 
-    /**
-     * Executes the {@link HttpMethod} passed in and sends the proxy response back to the client via the given {@link HttpServletResponse}
-     *
-     * @param httpMethodProxyRequest An object representing the proxy request to be made
-     * @param httpServletRequest
-     * @param httpServletResponse    An object by which we can send the proxied response back to the client
-     * @param user
-     * @param password
-     * @throws ServletException Can be thrown to indicate that another error has occurred
-     */
     private void executeProxyRequest(HttpRequestBase httpMethodProxyRequest,
                                      HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse,
                                      String user, String password) throws ServletException {
+        LOGGER.debug("Executing proxy request for URL: {}", httpMethodProxyRequest.getURI());
 
         if (user != null && password != null) {
+            LOGGER.debug("Setting up credentials for user: {}", user);
             Credentials credentials = new UsernamePasswordCredentials(user, password);
             credsProvider = new BasicCredentialsProvider();
             credsProvider.setCredentials(AuthScope.ANY, credentials);
@@ -687,123 +679,81 @@ public class HTTPProxy extends HttpServlet {
         InputStream inputStreamServerResponse = null;
 
         try {
-
-            // //////////////////////////
-            // Execute the request
-            // //////////////////////////
-
+            LOGGER.debug("Executing HTTP request");
             HttpResponse response = httpClient.execute(httpMethodProxyRequest);
+            LOGGER.debug("Received response with status code: {}", response.getStatusLine().getStatusCode());
 
             onRemoteResponse(response);
 
-            // ////////////////////////////////////////////////////////////////////////////////
-            // Check if the proxy response is a redirect
-            // The following code is adapted from
-            // org.tigris.noodle.filters.CheckForRedirect
-            // Hooray for open source software
-            // ////////////////////////////////////////////////////////////////////////////////
-
-            if (getStatusCode(response) >= HttpServletResponse.SC_MULTIPLE_CHOICES /* 300 */
-                    && getStatusCode(response) < HttpServletResponse.SC_NOT_MODIFIED /* 304 */) {
-
-                String stringStatusCode = Integer.toString(getStatusCode(response));
-                String stringLocation = httpMethodProxyRequest.getFirstHeader(
-                        Utils.LOCATION_HEADER).getValue();
-
-                if (stringLocation == null) {
-                    throw new ServletException("Received status code: " + stringStatusCode
-                            + " but no " + Utils.LOCATION_HEADER
-                            + " header was found in the response");
+            int statusCode = getStatusCode(response);
+            if (statusCode >= HttpServletResponse.SC_MULTIPLE_CHOICES && statusCode < HttpServletResponse.SC_NOT_MODIFIED) {
+                LOGGER.debug("Handling redirect response");
+                String location = httpMethodProxyRequest.getFirstHeader(Utils.LOCATION_HEADER).getValue();
+                if (location == null) {
+                    throw new ServletException("Received status code: " + statusCode + " but no " + Utils.LOCATION_HEADER + " header was found in the response");
                 }
-
-                // /////////////////////////////////////////////
-                // Modify the redirect to go to this proxy
-                // servlet rather that the proxied host
-                // /////////////////////////////////////////////
-
-                String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, "UTF-8");
+                String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(location, "UTF-8");
+                LOGGER.info("Redirecting to: {}", redirectURL);
                 httpServletResponse.sendRedirect(redirectURL);
-                LOGGER.info("redirected to:{}", redirectURL);
                 return;
-
-            } else if (getStatusCode(response) == HttpServletResponse.SC_NOT_MODIFIED) {
-
-                // ///////////////////////////////////////////////////////////////
-                // 304 needs special handling. See:
-                // http://www.ics.uci.edu/pub/ietf/http/rfc1945.html#Code304
-                // We get a 304 whenever passed an 'If-Modified-Since'
-                // header and the data on disk has not changed; server
-                // responds w/ a 304 saying I'm not going to send the
-                // body because the file has not changed.
-                // ///////////////////////////////////////////////////////////////
-
+            } else if (statusCode == HttpServletResponse.SC_NOT_MODIFIED) {
+                LOGGER.debug("Handling 304 Not Modified response");
                 httpServletResponse.setIntHeader(Utils.CONTENT_LENGTH_HEADER_NAME, 0);
                 httpServletResponse.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
-
                 return;
             }
 
-            // /////////////////////////////////////////////
-            // Pass the response code back to the client
-            // /////////////////////////////////////////////
-
-            httpServletResponse.setStatus(getStatusCode(response));
-
-            // /////////////////////////////////////////////
-            // Pass response headers back to the client
-            // /////////////////////////////////////////////
+            LOGGER.debug("Setting response status code: {}", statusCode);
+            httpServletResponse.setStatus(statusCode);
 
             if (response.getAllHeaders() != null) {
-                Header[] headerArrayResponse = response.getAllHeaders();
-
-                for (Header header : headerArrayResponse) {
-
-                    // /////////////////////////
-                    // Skip GZIP Responses
-                    // /////////////////////////
-
-                    if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_ACCEPT_ENCODING)
-                            && header.getValue().toLowerCase().contains("gzip"))
+                for (Header header : response.getAllHeaders()) {
+                    if (shouldSkipHeader(header)) {
+                        LOGGER.debug("Skipping header: {}", header.getName());
                         continue;
-                    else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_CONTENT_ENCODING)
-                            && header.getValue().toLowerCase().contains("gzip"))
-                        continue;
-                    else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
-                        continue;
-                    else
-                        httpServletResponse.setHeader(header.getName(), header.getValue());
+                    }
+                    LOGGER.debug("Setting response header: {}={}", header.getName(), header.getValue());
+                    httpServletResponse.setHeader(header.getName(), header.getValue());
                 }
             }
 
-            // ///////////////////////////////////
-            // Send the content to the client
-            // ///////////////////////////////////
-
             inputStreamServerResponse = response.getEntity().getContent();
-
             if (inputStreamServerResponse != null) {
+                LOGGER.debug("Sending content to client");
                 byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
-
-                int read = 0;
+                int read;
+                int totalBytesRead = 0;
                 ServletOutputStream out = httpServletResponse.getOutputStream();
                 while ((read = inputStreamServerResponse.read(b)) > 0) {
                     out.write(b, 0, read);
+                    totalBytesRead += read;
                 }
+                LOGGER.debug("Total bytes sent to client: {}", totalBytesRead);
             }
 
         } catch (Exception e) {
             LOGGER.error("Error executing HTTP method", e);
         } finally {
             try {
-                if (inputStreamServerResponse != null)
+                if (inputStreamServerResponse != null) {
                     inputStreamServerResponse.close();
+                }
             } catch (IOException e) {
                 LOGGER.error("Error closing request input stream", e);
                 throw new ServletException(e.getMessage());
             }
 
+            LOGGER.debug("Releasing connection");
             httpMethodProxyRequest.releaseConnection();
         }
+    }
+
+    private boolean shouldSkipHeader(Header header) {
+        String name = header.getName().toLowerCase();
+        String value = header.getValue().toLowerCase();
+        return (name.equals(Utils.HTTP_HEADER_ACCEPT_ENCODING) && value.contains("gzip")) ||
+                (name.equals(Utils.HTTP_HEADER_CONTENT_ENCODING) && value.contains("gzip")) ||
+                name.equals(Utils.HTTP_HEADER_TRANSFER_ENCODING);
     }
 
     int getStatusCode(HttpResponse response) {
@@ -818,6 +768,7 @@ public class HTTPProxy extends HttpServlet {
     /**
      * Retrieves all the headers from the servlet request and sets them on the proxy request
      *
+     * @param url                    The URL of the proxy request
      * @param httpServletRequest     The request object representing the client's request to the servlet engine
      * @param httpMethodProxyRequest The request that we are about to send to the proxy host
      * @return ProxyInfo
@@ -825,81 +776,73 @@ public class HTTPProxy extends HttpServlet {
     @SuppressWarnings("rawtypes")
     private ProxyInfo setProxyRequestHeaders(URL url, HttpServletRequest httpServletRequest,
                                              HttpRequestBase httpMethodProxyRequest) {
+        LOGGER.debug("Setting proxy request headers for URL: {}", url);
 
         final String proxyHost = url.getHost();
         final int proxyPort = url.getPort();
         final String proxyPath = url.getPath();
         final ProxyInfo proxyInfo = new ProxyInfo(proxyHost, proxyPath, proxyPort);
 
-        // ////////////////////////////////////////
-        // Get an Enumeration of all the header
-        // names sent by the client.
-        // ////////////////////////////////////////
+        LOGGER.debug("Created ProxyInfo: host={}, path={}, port={}", proxyHost, proxyPath, proxyPort);
 
-        Enumeration enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
+        Enumeration<String> enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
 
         while (enumerationOfHeaderNames.hasMoreElements()) {
-            String stringHeaderName = (String) enumerationOfHeaderNames.nextElement();
+            String stringHeaderName = enumerationOfHeaderNames.nextElement();
 
-            if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME))
+            if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME)) {
+                LOGGER.debug("Skipping Content-Length header");
                 continue;
+            }
 
-            // ////////////////////////////////////////////////////////////////////////
-            // As per the Java Servlet API 2.5 documentation:
-            // Some headers, such as Accept-Language, can be sent by clients
-            // as several headers each with a different value rather than
-            // sending the header as a comma separated list.
-            // Thus, we get an Enumeration of the header values sent by the client
-            // ////////////////////////////////////////////////////////////////////////
-
-            Enumeration enumerationOfHeaderValues = httpServletRequest.getHeaders(stringHeaderName);
+            Enumeration<String> enumerationOfHeaderValues = httpServletRequest.getHeaders(stringHeaderName);
 
             while (enumerationOfHeaderValues.hasMoreElements()) {
-                String stringHeaderValue = (String) enumerationOfHeaderValues.nextElement();
-
-                // ////////////////////////////////////////////////////////////////
-                // In case the proxy host is running multiple virtual servers,
-                // rewrite the Host header to ensure that we get content from
-                // the correct virtual server
-                // ////////////////////////////////////////////////////////////////
+                String stringHeaderValue = enumerationOfHeaderValues.nextElement();
 
                 if (stringHeaderName.equalsIgnoreCase(Utils.HOST_HEADER_NAME)) {
                     stringHeaderValue = Utils.getProxyHostAndPort(proxyInfo);
+                    LOGGER.debug("Rewriting Host header to: {}", stringHeaderValue);
                 }
 
-                // ////////////////////////
-                // Skip GZIP Responses
-                // ////////////////////////
-
                 if (stringHeaderName.equalsIgnoreCase(Utils.HTTP_HEADER_ACCEPT_ENCODING)
-                        && stringHeaderValue.toLowerCase().contains("gzip"))
+                        && stringHeaderValue.toLowerCase().contains("gzip")) {
+                    LOGGER.debug("Skipping gzip Accept-Encoding header");
                     continue;
+                }
                 if (stringHeaderName.equalsIgnoreCase(Utils.HTTP_HEADER_CONTENT_ENCODING)
-                        && stringHeaderValue.toLowerCase().contains("gzip"))
+                        && stringHeaderValue.toLowerCase().contains("gzip")) {
+                    LOGGER.debug("Skipping gzip Content-Encoding header");
                     continue;
-                if (stringHeaderName.equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
+                }
+                if (stringHeaderName.equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING)) {
+                    LOGGER.debug("Skipping Transfer-Encoding header");
                     continue;
+                }
 
-                // /////////////////////////////////////////////
-                // Set the same header on the proxy request
-                // /////////////////////////////////////////////
-
+                LOGGER.debug("Setting header on proxy request: {}={}", stringHeaderName, stringHeaderValue);
                 httpMethodProxyRequest.setHeader(stringHeaderName, stringHeaderValue);
-
             }
         }
 
+        LOGGER.debug("Finished setting proxy request headers");
         return proxyInfo;
     }
 
     private Map<String, String> splitQuery(String query) throws UnsupportedEncodingException {
+        LOGGER.debug("Splitting query string: {}", query);
         Map<String, String> query_pairs = new LinkedHashMap<String, String>();
 
         String[] pairs = query.split("&");
         for (String pair : pairs) {
             int idx = pair.indexOf("=");
-            query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+            String key = URLDecoder.decode(pair.substring(0, idx), "UTF-8");
+            String value = URLDecoder.decode(pair.substring(idx + 1), "UTF-8");
+            LOGGER.debug("Parsed query parameter: {}={}", key, value);
+            query_pairs.put(key, value);
         }
+
+        LOGGER.debug("Finished splitting query string. Total parameters: {}", query_pairs.size());
         return query_pairs;
     }
 
