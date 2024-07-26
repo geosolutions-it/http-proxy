@@ -71,6 +71,11 @@ final class ProxyConfig {
     private Set<String> disallowedAuthHeaders = new HashSet<String>();
 
     /**
+     * A set of cookie names that should be skipped when forwarding requests
+     */
+    private Set<String> cookiesToSkip = new HashSet<String>();
+
+    /**
      * The servlet context
      */
     private ServletContext context;
@@ -145,6 +150,12 @@ final class ProxyConfig {
             p = Utils.parseWhiteList(props.getProperty("disallowedAuthHeadersNames"));
             if (p != null)
                 this.setDisallowedAuthHeaders(p);
+
+            // Load cookies to skip
+            Set<String> cookiesToSkipSet = Utils.parseWhiteList(props.getProperty("cookiesToSkip"));
+            if (cookiesToSkipSet != null) {
+                this.setCookiesToSkip(cookiesToSkipSet);
+            }
 
             // ////////////////////////////////////////
             // Read various request type properties
@@ -507,5 +518,28 @@ final class ProxyConfig {
      */
     public void setDisallowedAuthHeaders(Set<String> disallowedAuthHeaders) {
         this.disallowedAuthHeaders = disallowedAuthHeaders;
+    }
+
+    /**
+     * @return the cookiesToSkip
+     */
+    public Set<String> getCookiesToSkip() {
+        Properties props = propertiesLoader();
+
+        if (props != null) {
+            Set<String> set = Utils.parseWhiteList(props.getProperty("cookiesToSkip"));
+            if (set != null) {
+                this.setCookiesToSkip(set);
+            }
+        }
+
+        return cookiesToSkip;
+    }
+
+    /**
+     * @param cookiesToSkip the cookiesToSkip to set
+     */
+    public void setCookiesToSkip(Set<String> cookiesToSkip) {
+        this.cookiesToSkip = cookiesToSkip;
     }
 }

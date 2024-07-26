@@ -98,7 +98,6 @@ public class HTTPProxy extends HttpServlet {
      */
     private PoolingHttpClientConnectionManager connectionManager;
 
-    HttpClientBuilder clientBuilder = HttpClientBuilder.create();
     /**
      * An HTTP "user-agent", containing an HTTP state and one or more HTTP connections, to which HTTP methods can be applied.
      */
@@ -134,7 +133,7 @@ public class HTTPProxy extends HttpServlet {
         connectionManager.setMaxTotal(6);
         connectionManager.setDefaultMaxPerRoute(6);
 
-        httpClient = createHttpClient();
+        httpClient = createHttpClient(proxyConfig, credsProvider);
 
         // //////////////////////////////////////////
         // Set up the callbacks (in the future this
@@ -154,7 +153,7 @@ public class HTTPProxy extends HttpServlet {
      * Creates the HttpClient
      * @return HttpClient
      */
-    public HttpClient createHttpClient() {
+    public HttpClient createHttpClient(ProxyConfig proxyConfig, BasicCredentialsProvider credsProvider) {
         if (httpClient != null)
             return httpClient;
 
@@ -165,10 +164,13 @@ public class HTTPProxy extends HttpServlet {
 
         HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
 
+        HttpClientBuilder clientBuilder = CustomHttpClientBuilder.create(proxyConfig);
         clientBuilder.setRoutePlanner(routePlanner);
         clientBuilder.useSystemProperties();
         clientBuilder.setConnectionManager(connectionManager);
-
+        if (credsProvider != null) {
+            clientBuilder.setDefaultCredentialsProvider(credsProvider);
+        }
         LOGGER.info("HTTP Client created");
         return clientBuilder.build();
     }
@@ -671,9 +673,8 @@ public class HTTPProxy extends HttpServlet {
             Credentials credentials = new UsernamePasswordCredentials(user, password);
             credsProvider = new BasicCredentialsProvider();
             credsProvider.setCredentials(AuthScope.ANY, credentials);
-            clientBuilder.setDefaultCredentialsProvider(credsProvider);
             httpClient = null;
-            httpClient = createHttpClient();
+            httpClient = createHttpClient(proxyConfig, credsProvider);
         }
 
         InputStream inputStreamServerResponse = null;
