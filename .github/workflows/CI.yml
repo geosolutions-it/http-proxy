@@ -26,7 +26,7 @@ jobs:
         distribution: 'adopt'
         cache: maven
     - name: Build with Maven
-      run: mvn -B clean install 
+      run: mvn -B clean install
   ## Only on push event, publish on geosolutions maven repo
   publish:
     runs-on: ubuntu-latest
@@ -44,7 +44,12 @@ jobs:
           server-username: MAVEN_USERNAME
           server-password: MAVEN_PASSWORD
       - name: Publish package
-        run: mvn -B clean install deploy
+        run: |
+          # Setup SSH keys for SFTP
+          mkdir -p ~/.ssh
+          # add geo-solutions.it to known hosts to avoid prompts
+          ssh-keyscan -H maven.geo-solutions.it >> ~/.ssh/known_hosts
+          mvn -B clean install deploy
         env:
           MAVEN_USERNAME: ${{ secrets.GS_MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.GS_MAVEN_PASSWORD }}
