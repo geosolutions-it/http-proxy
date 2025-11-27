@@ -6,23 +6,23 @@
 	<version>1.6-SNAPSHOT</version>
 	<name>http_proxy</name>
 	<url>https://maven.apache.org</url>
-    
+
 	<!-- The SCM -->
 	<scm>
 		<connection>scm:git:[fetch=]git@github.com:geosolutions-it/http-proxy.git[push=]git@github.com:geosolutions-it/http-proxy.git</connection>
 		<tag>master</tag>
 		<url>https://github.com/geosolutions-it/http-proxy</url>
 	</scm>
-	
+
 	<distributionManagement>
     <!--      GeoSolutions Repository     -->
       <repository>
         <uniqueVersion>false</uniqueVersion>
         <id>geosolutions</id>
-        <url>ftp://maven.geo-solutions.it</url>
+        <url>sftp://maven.geo-solutions.it</url>
       </repository>
     </distributionManagement>
-	
+
 	<build>
 		<plugins>
 			<plugin>
@@ -41,7 +41,7 @@
 				<configuration>
 					<skip>false</skip>
 				</configuration>
-			</plugin> 
+			</plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -78,7 +78,7 @@
                     </execution>
                 </executions>
             </plugin>
-            
+
             <plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-deploy-plugin</artifactId>
@@ -102,7 +102,7 @@
 						</configuration>
 					</execution>
 				</executions>
-			</plugin> 
+			</plugin>
 
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -132,7 +132,7 @@
 					<webAppSourceDirectory>${project.build.directory}/${project.artifactId}-${project.version}</webAppSourceDirectory>
 				</configuration>
 			</plugin>
-			
+
 			<!-- versioning -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -147,8 +147,8 @@
 		<extensions>
 			<extension>
 				<groupId>org.apache.maven.wagon</groupId>
-				<artifactId>wagon-ftp</artifactId>
-				<version>1.0-beta-7</version>
+				<artifactId>wagon-ssh</artifactId>
+				<version>3.5.3</version>
 			</extension>
 		</extensions>
 	</build>
@@ -292,7 +292,7 @@
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 		</dependency>
-        
+
         <dependency>
 			<groupId>commons-codec</groupId>
 			<artifactId>commons-codec</artifactId>
@@ -310,9 +310,9 @@
 			<scope>test</scope>
 		</dependency>
 
-        <dependency> 
-        	<groupId>org.mortbay.jetty</groupId> 
-        	<artifactId>jetty-servlet-tester</artifactId> 
+        <dependency>
+        	<groupId>org.mortbay.jetty</groupId>
+        	<artifactId>jetty-servlet-tester</artifactId>
         	<scope>test</scope>
         </dependency>
 
@@ -328,7 +328,7 @@
 			<artifactId>wiremock-jre8-standalone</artifactId>
 			<scope>test</scope>
 		</dependency>
-		
+
 	</dependencies>
 
 	<repositories>
