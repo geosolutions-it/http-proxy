@@ -847,11 +847,40 @@ public class HTTPProxy extends HttpServlet {
 
         Enumeration enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
 
+        // ////////////////////////////////////////
+        // Load header whitelist/blacklist for
+        // filtering forwarded request headers.
+        // ////////////////////////////////////////
+
+        Set<String> headerWhitelist = proxyConfig.getRequestHeaderWhitelist();
+        Set<String> headerBlacklist = proxyConfig.getRequestHeaderBlacklist();
+
         while (enumerationOfHeaderNames.hasMoreElements()) {
             String stringHeaderName = (String) enumerationOfHeaderNames.nextElement();
 
             if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME))
                 continue;
+
+            // ////////////////////////////////////////
+            // Apply header blacklist: always reject
+            // ////////////////////////////////////////
+
+            if (headerBlacklist != null && !headerBlacklist.isEmpty()) {
+                if (headerBlacklist.contains(stringHeaderName.toLowerCase())) {
+                    continue;
+                }
+            }
+
+            // ////////////////////////////////////////
+            // Apply header whitelist: if set, only
+            // allow headers in the whitelist
+            // ////////////////////////////////////////
+
+            if (headerWhitelist != null && !headerWhitelist.isEmpty()) {
+                if (!headerWhitelist.contains(stringHeaderName.toLowerCase())) {
+                    continue;
+                }
+            }
 
             // ////////////////////////////////////////////////////////////////////////
             // As per the Java Servlet API 2.5 documentation:

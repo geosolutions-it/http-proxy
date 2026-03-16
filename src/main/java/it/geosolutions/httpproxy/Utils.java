@@ -25,7 +25,9 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Utility methods.
@@ -148,6 +150,21 @@ final class Utils {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Converts all strings in the given set to lower case.
+     *
+     * @param set the input set
+     * @return a new set with all strings converted to lower case
+     */
+    static Set<String> toLowerCaseSet(Set<String> set) {
+        if (set == null) {
+            return null;
+        }
+        return set.stream().filter(Objects::nonNull)
+                .map(String::trim).map(String::toLowerCase)
+                .collect(Collectors.toSet());
     }
 
     static URL buildURL(String value) throws MalformedURLException {
