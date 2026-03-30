@@ -66,6 +66,18 @@ final class ProxyConfig {
     private Set<String> hostsWhitelist = new HashSet<String>();
 
     /**
+     * A list of request header names (case-insensitive) that the proxy is permitted to forward.
+     * If non-empty, only headers in this set will be forwarded.
+     */
+    private Set<String> requestHeaderWhitelist = new HashSet<String>();
+
+    /**
+     * A list of request header names (case-insensitive) that the proxy must NOT forward.
+     * Headers in this set will always be removed, even if they appear in the whitelist.
+     */
+    private Set<String> requestHeaderBlacklist = new HashSet<String>();
+
+    /**
      * The servlet context
      */
     private ServletContext context;
@@ -136,6 +148,14 @@ final class ProxyConfig {
             p = Utils.parseWhiteList(props.getProperty("hostsWhitelist"));
             if (p != null)
                 this.setHostsWhitelist(p);
+
+            p = Utils.parseWhiteList(props.getProperty("requestHeaderWhitelist"));
+            if (p != null)
+                this.setRequestHeaderWhitelist(Utils.toLowerCaseSet(p));
+
+            p = Utils.parseWhiteList(props.getProperty("requestHeaderBlacklist"));
+            if (p != null)
+                this.setRequestHeaderBlacklist(Utils.toLowerCaseSet(p));
 
             // ////////////////////////////////////////
             // Read various request type properties
@@ -434,6 +454,50 @@ final class ProxyConfig {
      */
     public void setHostsWhitelist(Set<String> hostsWhitelist) {
         this.hostsWhitelist = hostsWhitelist;
+    }
+
+    /**
+     * @return the requestHeaderWhitelist
+     */
+    public Set<String> getRequestHeaderWhitelist() {
+        Properties props = propertiesLoader();
+
+        if (props != null) {
+            Set<String> set = Utils.parseWhiteList(props.getProperty("requestHeaderWhitelist"));
+            if (set != null)
+                this.setRequestHeaderWhitelist(Utils.toLowerCaseSet(set));
+        }
+
+        return requestHeaderWhitelist;
+    }
+
+    /**
+     * @param requestHeaderWhitelist the requestHeaderWhitelist to set
+     */
+    public void setRequestHeaderWhitelist(Set<String> requestHeaderWhitelist) {
+        this.requestHeaderWhitelist = requestHeaderWhitelist;
+    }
+
+    /**
+     * @return the requestHeaderBlacklist
+     */
+    public Set<String> getRequestHeaderBlacklist() {
+        Properties props = propertiesLoader();
+
+        if (props != null) {
+            Set<String> set = Utils.parseWhiteList(props.getProperty("requestHeaderBlacklist"));
+            if (set != null)
+                this.setRequestHeaderBlacklist(Utils.toLowerCaseSet(set));
+        }
+
+        return requestHeaderBlacklist;
+    }
+
+    /**
+     * @param requestHeaderBlacklist the requestHeaderBlacklist to set
+     */
+    public void setRequestHeaderBlacklist(Set<String> requestHeaderBlacklist) {
+        this.requestHeaderBlacklist = requestHeaderBlacklist;
     }
 
     /**
