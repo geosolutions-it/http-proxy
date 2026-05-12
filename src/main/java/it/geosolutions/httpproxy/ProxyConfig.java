@@ -26,10 +26,11 @@ import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import javax.servlet.ServletContext;
+import jakarta.servlet.ServletContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * ProxyConfig class to define the proxy configuration.
@@ -38,7 +39,7 @@ import javax.servlet.ServletContext;
  */
 final class ProxyConfig {
 
-    private final static Logger LOGGER = Logger.getLogger(ProxyConfig.class.toString());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProxyConfig.class);
 
     /**
      * A list of regular expressions describing hostnames the proxy is permitted to forward to
@@ -215,9 +216,7 @@ final class ProxyConfig {
                         : this.defaultMaxConnectionsPerHost);
 
             } catch (NumberFormatException e) {
-                if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE,
-                            "Error parsing the proxy properties file using default", e);
+                LOGGER.error("Error parsing proxy configuration: {}", e.getMessage(), e);
 
                 this.setSoTimeout(this.soTimeout);
                 this.setConnectionTimeout(this.connectionTimeout);
@@ -248,25 +247,16 @@ final class ProxyConfig {
             try {
                 inputStream = new FileInputStream(path);
             } catch (FileNotFoundException e) {
-                if (LOGGER.isLoggable(Level.WARNING))
-                    LOGGER.log(Level.WARNING, "The properties file " + path + " cannot be found");
+                LOGGER.warn("The properties file {} cannot be found", path);
             }
         }
         if (inputStream != null) {
-            Properties props = new Properties();
-            try {
-                props.load(inputStream);
+            try (InputStream is = inputStream) {
+                Properties props = new Properties();
+                props.load(is);
                 properties.putAll(props);
             } catch (IOException e) {
-                if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE, "Error loading the proxy properties file from " + path, e);
-            } finally {
-                if (inputStream != null)
-                    try {
-                        inputStream.close();
-                    } catch (IOException e) {
-                        
-                    }
+                LOGGER.error("Error loading the proxy properties file from {}", path, e);
             }
         }
     }

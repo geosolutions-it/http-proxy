@@ -28,10 +28,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -40,23 +40,19 @@ import org.apache.http.StatusLine;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.entity.StringEntity;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import static org.mockito.Mockito.*;
 
 /**
  * Tests for request header whitelist and blacklist filtering.
  */
-public class RequestHeaderFilterTest extends Mockito {
+public class RequestHeaderFilterTest {
 
     Map<String, String[]> parameters = new HashMap<>();
-    private List<Header> headers = new ArrayList<>();
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // URL must match one of the reqtypeWhitelist patterns in proxy.properties
         parameters.put("url", new String[]{"http://sample.com/csw"});

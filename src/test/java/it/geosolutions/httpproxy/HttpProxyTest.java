@@ -29,11 +29,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletInputStream;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -44,28 +44,29 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.message.BasicHeader;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import static org.mockito.Mockito.*;
 
 /**
  * HttpProxyTest class. Test Cases for the HTTPProxy servlet.
  *
  * @author Lorenzo Natali at lorenzo.natali@geo-solutions.it
  */
-public class HttpProxyTest extends Mockito {
+public class HttpProxyTest {
 
     final ServletConfig servletConfig = mock(ServletConfig.class);
     ServletContext ctx = mock(ServletContext.class);
-    Map<String, String[]> parameters = new HashMap<String, String[]>();
-    private List<Header> headers = new ArrayList<Header>();
+    Map<String, String[]> parameters = new HashMap<>();
+    private List<String> headers = new ArrayList<>();
 
     org.apache.http.client.HttpClient mockHttpClient;
     HTTPProxy proxy;
     String fakeLocation;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         File f = new File(getClass().getClassLoader()
                 .getResource("test-proxy.properties").getFile());
@@ -123,8 +124,8 @@ public class HttpProxyTest extends Mockito {
                 "http://proxy.com/http-proxy/proxy?url="
                         + URLEncoder.encode(fakeLocation, "UTF-8"));
         final byte[] data = servletOutputStream.baos.toByteArray();
-        Assert.assertNotNull(data);
-        Assert.assertTrue(data.length == 0);
+        Assertions.assertNotNull(data);
+        Assertions.assertTrue(data.length == 0);
     }
 
     @Test
@@ -159,7 +160,7 @@ public class HttpProxyTest extends Mockito {
         when(postRequest.getQueryString()).thenReturn("url=https://jsonplaceholder.typicode.com/test/createUser");
         when(postRequest.getMethod()).thenReturn("post");
 
-        Enumeration<Object> enumeration = Collections.enumeration(Collections.emptyList());
+        Enumeration<String> enumeration = Collections.enumeration(Collections.emptyList());
         when(postRequest.getHeaderNames()).thenReturn(enumeration);
 
         ServletInputStream stream = mock(ServletInputStream.class);
@@ -173,8 +174,8 @@ public class HttpProxyTest extends Mockito {
         proxy.doPost(postRequest, getResponse);
         verify(getResponse).setStatus(200);
         final byte[] data = servletOutputStream.baos.toByteArray();
-        Assert.assertNotNull(data);
-        Assert.assertTrue(data.length != 0);
+        Assertions.assertNotNull(data);
+        Assertions.assertTrue(data.length != 0);
     }
 
 }
