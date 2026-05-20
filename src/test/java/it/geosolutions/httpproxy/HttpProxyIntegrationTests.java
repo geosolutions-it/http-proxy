@@ -97,12 +97,12 @@ public class HttpProxyIntegrationTests {
     public void testGETUsingWireMock() throws IOException {
 
         wireMockRule.stubFor(
-                get(urlEqualTo("/geostore/users"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "text/xml")
-                                        .withBody("<response>Some content</response>")));
+            get(urlEqualTo("/geostore/users"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "text/xml")
+                    .withBody("<response>Some content</response>")));
 
         String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/users";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
@@ -189,13 +189,13 @@ public class HttpProxyIntegrationTests {
 
         String requestBody = "<user><userId>5</userId><userName>John Doe</userName></user>";
         wireMockRule.stubFor(
-                put(urlEqualTo("/geostore/users/5"))
-                        .withRequestBody(equalToXml(requestBody))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)
-                                        .withHeader("Content-Type", "text/xml")
-                                        .withBody("<response>5</response>")));
+            put(urlEqualTo("/geostore/users/5"))
+               .withRequestBody(equalToXml(requestBody))
+               .willReturn(
+                   aResponse()
+                       .withStatus(200)
+                       .withHeader("Content-Type", "text/xml")
+                       .withBody("<response>5</response>")));
 
         String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/users/5";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
@@ -221,10 +221,10 @@ public class HttpProxyIntegrationTests {
         System.setProperty("http.proxyPort", "");
 
         wireMockRule.stubFor(
-                get(urlEqualTo("/geostore/resources"))
-                        .willReturn(
-                                aResponse()
-                                        .withStatus(200)));
+            get(urlEqualTo("/geostore/resources"))
+                .willReturn(
+                    aResponse()
+                      .withStatus(200)));
 
         String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/resources";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
