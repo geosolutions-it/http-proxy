@@ -145,8 +145,8 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<log4j-version>2.25.4</log4j-version>
-		<http-client-version>4.5.14</http-client-version>
-		<jetty-version>12.1.8</jetty-version>
+		<httpclient5-version>5.6.1</httpclient5-version>
+		<jetty-version>12.1.10</jetty-version>
 	</properties>
 
 	<dependencyManagement>
@@ -179,15 +179,9 @@
 			</dependency>
 
 			<dependency>
-				<groupId>org.apache.httpcomponents</groupId>
-				<artifactId>httpclient</artifactId>
-				<version>${http-client-version}</version>
-			</dependency>
-
-			<dependency>
-				<groupId>org.apache.httpcomponents</groupId>
-				<artifactId>httpmime</artifactId>
-				<version>${http-client-version}</version>
+				<groupId>org.apache.httpcomponents.client5</groupId>
+				<artifactId>httpclient5</artifactId>
+				<version>${httpclient5-version}</version>
 			</dependency>
 
 			<dependency>
@@ -267,13 +261,8 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpclient</artifactId>
-		</dependency>
-
-		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpmime</artifactId>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
 		</dependency>
 
 		<dependency>

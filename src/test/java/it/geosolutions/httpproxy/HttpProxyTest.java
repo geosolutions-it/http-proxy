@@ -35,15 +35,13 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.message.BasicHeader;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicHeader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +60,7 @@ public class HttpProxyTest {
     Map<String, String[]> parameters = new HashMap<>();
     private List<String> headers = new ArrayList<>();
 
-    org.apache.http.client.HttpClient mockHttpClient;
+    CloseableHttpClient mockHttpClient;
     HTTPProxy proxy;
     String fakeLocation;
 
@@ -84,12 +82,10 @@ public class HttpProxyTest {
 
         // mock redirect response
         final HttpGet mockGetMethod = mock(HttpGet.class);
-        HttpResponse response = mock(HttpResponse.class);
-        StatusLine statusLine = mock(StatusLine.class);
-        when(statusLine.getStatusCode()).thenReturn(302);
-        when(response.getStatusLine()).thenReturn(statusLine);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(302);
 
-        mockHttpClient = mock(HttpClient.class);
+        mockHttpClient = mock(CloseableHttpClient.class);
         when(mockHttpClient.execute(mockGetMethod)).thenReturn(response);
         fakeLocation = "http://newURL.com/";
 
@@ -133,15 +129,13 @@ public class HttpProxyTest {
 
         // mock post response
         final HttpPost mockPostMethod = mock(HttpPost.class);
-        HttpResponse response = mock(HttpResponse.class);
-        StatusLine statusLine = mock(StatusLine.class);
-        when(statusLine.getStatusCode()).thenReturn(200);
-        when(response.getStatusLine()).thenReturn(statusLine);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(200);
 
         HttpEntity stringEntity = new StringEntity("user created");
         when(response.getEntity()).thenReturn(stringEntity);
-        when(mockPostMethod.getAllHeaders()).thenReturn(new Header[]{});
-        mockHttpClient = mock(HttpClient.class);
+        when(response.headerIterator()).thenReturn(Collections.<org.apache.hc.core5.http.Header>emptyList().iterator());
+        mockHttpClient = mock(CloseableHttpClient.class);
         when(mockHttpClient.execute(mockPostMethod)).thenReturn(response);
 
         proxy = new HTTPProxy() {

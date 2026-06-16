@@ -26,8 +26,8 @@ import java.util.Set;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.http.Header;
-import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.core5.http.Header;
 
 /**
  * MimeTypeChecker class for the mimetype check.
@@ -60,7 +60,7 @@ public class MimeTypeChecker implements ProxyCallback {
      * 
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpUriRequestBase method) throws IOException {
         Set<String> mimeTypes = config.getMimetypeWhitelist();
 
         if (mimeTypes != null && mimeTypes.size() > 0) {

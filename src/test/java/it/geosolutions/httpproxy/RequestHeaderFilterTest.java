@@ -33,13 +33,11 @@ import jakarta.servlet.ServletContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.entity.StringEntity;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +60,7 @@ public class RequestHeaderFilterTest {
      * Helper to create a proxy configured with the given properties file resource.
      */
     private HTTPProxy createProxy(String propertiesResource, final HttpGet mockGetMethod,
-                                  HttpClient mockHttpClient) throws Exception {
+                                  CloseableHttpClient mockHttpClient) throws Exception {
         File f = new File(getClass().getClassLoader()
                 .getResource(propertiesResource).getFile());
 
@@ -87,22 +85,19 @@ public class RequestHeaderFilterTest {
     /**
      * Build a mock GET that returns a 200 with the given body.
      */
-    private HttpGet buildMockGet(HttpClient mockHttpClient) throws Exception {
+    private HttpGet buildMockGet(CloseableHttpClient mockHttpClient) throws Exception {
         HttpGet mockGetMethod = mock(HttpGet.class);
-        HttpResponse response = mock(HttpResponse.class);
-        StatusLine statusLine = mock(StatusLine.class);
-        when(statusLine.getStatusCode()).thenReturn(200);
-        when(response.getStatusLine()).thenReturn(statusLine);
-        HttpEntity entity = new StringEntity("OK");
-        when(response.getEntity()).thenReturn(entity);
-        when(response.getAllHeaders()).thenReturn(new Header[]{});
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(200);
+        when(response.getEntity()).thenReturn(new StringEntity("OK"));
+        when(response.headerIterator()).thenReturn(Collections.<Header>emptyList().iterator());
         when(mockHttpClient.execute(mockGetMethod)).thenReturn(response);
         return mockGetMethod;
     }
 
     @Test
     public void testBlacklistRemovesHeaders() throws Exception {
-        HttpClient mockHttpClient = mock(HttpClient.class);
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",
@@ -138,7 +133,7 @@ public class RequestHeaderFilterTest {
 
     @Test
     public void testWhitelistOnlyForwardsAllowedHeaders() throws Exception {
-        HttpClient mockHttpClient = mock(HttpClient.class);
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",
@@ -178,7 +173,7 @@ public class RequestHeaderFilterTest {
         // and blacklist (X-Secret,Cookie).
         // A header NOT in either list should be blocked by the whitelist.
         // A header in the blacklist should always be blocked even if it were whitelisted.
-        HttpClient mockHttpClient = mock(HttpClient.class);
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",

@@ -6,13 +6,13 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.eclipse.jetty.ee10.webapp.WebAppContext;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.classic.methods.HttpPut;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.LoggerFactory;
@@ -108,8 +108,8 @@ public class HttpProxyIntegrationTests {
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpGet httpGet = new HttpGet(proxyURL);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpResponse httpResponse = httpClient.execute(httpGet);
-            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            ClassicHttpResponse httpResponse = httpClient.execute(httpGet);
+            Assertions.assertEquals(200, httpResponse.getCode());
             wireMockRule.verify(getRequestedFor(urlEqualTo("/geostore/users")));
         }
     }
@@ -137,9 +137,9 @@ public class HttpProxyIntegrationTests {
         httpPost.setEntity(stringEntity);
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpResponse httpResponse = httpClient.execute(httpPost);
+            ClassicHttpResponse httpResponse = httpClient.execute(httpPost);
             Assertions.assertEquals("text/xml", httpResponse.getFirstHeader("Content-Type").getValue());
-            Assertions.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals(201, httpResponse.getCode());
             wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
         }
     }
@@ -174,9 +174,9 @@ public class HttpProxyIntegrationTests {
         httpPost.setEntity(stringEntity);
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpResponse httpResponse = httpClient.execute(httpPost);
+            ClassicHttpResponse httpResponse = httpClient.execute(httpPost);
             Assertions.assertEquals("application/json", httpResponse.getFirstHeader("Content-Type").getValue());
-            Assertions.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals(201, httpResponse.getCode());
             wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
         }
     }
@@ -204,8 +204,8 @@ public class HttpProxyIntegrationTests {
         httpPut.setEntity(stringEntity);
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpResponse httpResponse = httpClient.execute(httpPut);
-            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            ClassicHttpResponse httpResponse = httpClient.execute(httpPut);
+            Assertions.assertEquals(200, httpResponse.getCode());
             wireMockRule.verify(putRequestedFor(urlEqualTo("/geostore/users/5")));
         }
     }
@@ -230,8 +230,8 @@ public class HttpProxyIntegrationTests {
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpGet httpGet = new HttpGet(proxyURL);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            HttpResponse httpResponse = httpClient.execute(httpGet);
-            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            ClassicHttpResponse httpResponse = httpClient.execute(httpGet);
+            Assertions.assertEquals(200, httpResponse.getCode());
             wireMockRule.verify(getRequestedFor(urlEqualTo("/geostore/resources")));
         }
     }

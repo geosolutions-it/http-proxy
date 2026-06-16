@@ -25,7 +25,7 @@ import java.net.URL;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 
 /**
  * A pluggable callback that can perform checks or alter the request.
@@ -48,7 +48,7 @@ public interface ProxyCallback {
      * @param method
      * @throws IOException
      */
-    void onRemoteResponse(HttpRequestBase method) throws IOException;
+    void onRemoteResponse(HttpUriRequestBase method) throws IOException;
 
     /**
      * Called when the request is fully proxied, can be used for cleanup actions
