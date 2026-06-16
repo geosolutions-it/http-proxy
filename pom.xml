@@ -19,7 +19,7 @@
       <repository>
         <uniqueVersion>false</uniqueVersion>
         <id>geosolutions</id>
-        <url>sftp://maven.geo-solutions.it</url>
+        <url>scpexe://maven.geo-solutions.it</url>
       </repository>
     </distributionManagement>
 
@@ -147,7 +147,7 @@
 		<extensions>
 			<extension>
 				<groupId>org.apache.maven.wagon</groupId>
-				<artifactId>wagon-ssh</artifactId>
+				<artifactId>wagon-ssh-external</artifactId>
 				<version>3.5.3</version>
 			</extension>
 		</extensions>
