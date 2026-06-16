@@ -2,7 +2,10 @@ package it.geosolutions.httpproxy;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import org.eclipse.jetty.ee10.webapp.WebAppContext;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.ServerConnector;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -10,12 +13,8 @@ import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.junit.*;
-import org.mortbay.jetty.Connector;
-import org.mortbay.jetty.Server;
-import org.mortbay.jetty.bio.SocketConnector;
-import org.mortbay.jetty.webapp.WebAppContext;
-import org.mortbay.thread.BoundedThreadPool;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
@@ -30,13 +29,15 @@ public class HttpProxyIntegrationTests {
 
     private static final org.slf4j.Logger LOGGER = LoggerFactory.getLogger(HttpProxyIntegrationTests.class);
 
-    @Rule
-    public WireMockRule wireMockRule =
-            new WireMockRule(WireMockConfiguration.options().dynamicPort());
+    @RegisterExtension
+    static WireMockExtension wireMockRule = WireMockExtension.newInstance()
+            .options(WireMockConfiguration.options().dynamicPort())
+            .build();
 
-    @Rule
-    public WireMockRule wireMockRule1 =
-            new WireMockRule(WireMockConfiguration.options().dynamicPort());
+    @RegisterExtension
+    static WireMockExtension wireMockRule1 = WireMockExtension.newInstance()
+            .options(WireMockConfiguration.options().dynamicPort())
+            .build();
 
     static WireMockServer wireMockServer;
 
@@ -45,7 +46,7 @@ public class HttpProxyIntegrationTests {
     private static String proxyHost;
     private static String proxyPort;
 
-    @BeforeClass
+    @BeforeAll
     public static void startHttpProxyServer() {
 
         try {
@@ -56,23 +57,15 @@ public class HttpProxyIntegrationTests {
             wireMockServer.start();
 
             jettyServer = new Server();
+            ServerConnector connector = new ServerConnector(jettyServer);
+            connector.setPort(8080);
+            jettyServer.addConnector(connector);
 
-            BoundedThreadPool tp = new BoundedThreadPool();
-            tp.setMaxThreads(50);
-
-            SocketConnector conn = new SocketConnector();
-            int port = 8080;
-
-            conn.setPort(port);
-            conn.setThreadPool(tp);
-            conn.setAcceptQueueSize(100);
-            jettyServer.setConnectors(new Connector[]{conn});
-
-            WebAppContext wah = new WebAppContext();
-            wah.setContextPath("/http_proxy");
-            wah.setWar("src/main/webapp");
-            jettyServer.setHandler(wah);
-            wah.setTempDirectory(new File("target/work"));
+            WebAppContext webapp = new WebAppContext();
+            webapp.setContextPath("/http_proxy");
+            webapp.setWar(new File("src/main/webapp").getAbsolutePath());
+            webapp.setTempDirectory(new File("target/work"));
+            jettyServer.setHandler(webapp);
 
             jettyServer.start();
 
@@ -103,21 +96,20 @@ public class HttpProxyIntegrationTests {
     @Test
     public void testGETUsingWireMock() throws IOException {
 
-        wireMockRule.addStubMapping(
-                stubFor(
-                        get(urlEqualTo("/geostore/users"))
-                                .willReturn(
-                                        aResponse()
-                                                .withStatus(200)
-                                                .withHeader("Content-Type", "text/xml")
-                                                .withBody("<response>Some content</response>"))));
+        wireMockRule.stubFor(
+            get(urlEqualTo("/geostore/users"))
+            .willReturn(
+                aResponse()
+                    .withStatus(200)
+                    .withHeader("Content-Type", "text/xml")
+                    .withBody("<response>Some content</response>")));
 
-        String url = "http://localhost:" + wireMockRule.port() + "/geostore/users";
+        String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/users";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpGet httpGet = new HttpGet(proxyURL);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpGet);
-            Assert.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
             wireMockRule.verify(getRequestedFor(urlEqualTo("/geostore/users")));
         }
     }
@@ -129,17 +121,16 @@ public class HttpProxyIntegrationTests {
     public void testPOSTUsingWireMockXML() throws IOException {
 
         String requestBody = "<user><userId>5</userId><userName>Jane Doe</userName></user>";
-        wireMockRule1.addStubMapping(
-                stubFor(
-                        post(urlEqualTo("/geostore/users/create"))
-                                .withRequestBody(equalToXml(requestBody))
-                                .willReturn(
-                                        aResponse()
-                                                .withStatus(201)
-                                                .withHeader("Content-Type", "text/xml")
-                                                .withBody("<response>5</response>"))));
+        wireMockRule1.stubFor(
+                post(urlEqualTo("/geostore/users/create"))
+                        .withRequestBody(equalToXml(requestBody))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(201)
+                                        .withHeader("Content-Type", "text/xml")
+                                        .withBody("<response>5</response>")));
 
-        String url = "http://localhost:" + wireMockRule1.port() + "/geostore/users/create";
+        String url = "http://localhost:" + wireMockRule1.getPort() + "/geostore/users/create";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpPost httpPost = new HttpPost(proxyURL);
         StringEntity stringEntity = new StringEntity(requestBody);
@@ -147,8 +138,8 @@ public class HttpProxyIntegrationTests {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpPost);
-            Assert.assertEquals("text/xml", httpResponse.getFirstHeader("Content-Type").getValue());
-            Assert.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals("text/xml", httpResponse.getFirstHeader("Content-Type").getValue());
+            Assertions.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
             wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
         }
     }
@@ -165,19 +156,18 @@ public class HttpProxyIntegrationTests {
                 "    \"userName\": \"Jane Doe\"\n" +
                 "  }\n" +
                 "}";
-        wireMockRule1.addStubMapping(
-                stubFor(
-                        post(urlEqualTo("/geostore/users/create"))
-                                .withRequestBody(equalToJson(requestBody))
-                                .willReturn(
-                                        aResponse()
-                                                .withStatus(201)
-                                                .withHeader("Content-Type", "application/json")
-                                                .withBody("{\n" +
-                                                        "  \"response\": 5\n" +
-                                                        "}"))));
+        wireMockRule1.stubFor(
+                post(urlEqualTo("/geostore/users/create"))
+                        .withRequestBody(equalToJson(requestBody))
+                        .willReturn(
+                                aResponse()
+                                        .withStatus(201)
+                                        .withHeader("Content-Type", "application/json")
+                                        .withBody("{\n" +
+                                                "  \"response\": 5\n" +
+                                                "}")));
 
-        String url = "http://localhost:" + wireMockRule1.port() + "/geostore/users/create";
+        String url = "http://localhost:" + wireMockRule1.getPort() + "/geostore/users/create";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpPost httpPost = new HttpPost(proxyURL);
         StringEntity stringEntity = new StringEntity(requestBody);
@@ -185,8 +175,8 @@ public class HttpProxyIntegrationTests {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpPost);
-            Assert.assertEquals("application/json", httpResponse.getFirstHeader("Content-Type").getValue());
-            Assert.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals("application/json", httpResponse.getFirstHeader("Content-Type").getValue());
+            Assertions.assertEquals(201, httpResponse.getStatusLine().getStatusCode());
             wireMockRule1.verify(postRequestedFor(urlEqualTo("/geostore/users/create")));
         }
     }
@@ -198,17 +188,16 @@ public class HttpProxyIntegrationTests {
     public void testPUTUsingWireMock() throws IOException {
 
         String requestBody = "<user><userId>5</userId><userName>John Doe</userName></user>";
-        wireMockRule.addStubMapping(
-                stubFor(
-                        put(urlEqualTo("/geostore/users/5"))
-                                .withRequestBody(equalToXml(requestBody))
-                                .willReturn(
-                                        aResponse()
-                                                .withStatus(200)
-                                                .withHeader("Content-Type", "text/xml")
-                                                .withBody("<response>5</response>"))));
+        wireMockRule.stubFor(
+            put(urlEqualTo("/geostore/users/5"))
+               .withRequestBody(equalToXml(requestBody))
+               .willReturn(
+                   aResponse()
+                       .withStatus(200)
+                       .withHeader("Content-Type", "text/xml")
+                       .withBody("<response>5</response>")));
 
-        String url = "http://localhost:" + wireMockRule.port() + "/geostore/users/5";
+        String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/users/5";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpPut httpPut = new HttpPut(proxyURL);
         StringEntity stringEntity = new StringEntity(requestBody);
@@ -216,7 +205,7 @@ public class HttpProxyIntegrationTests {
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpPut);
-            Assert.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
             wireMockRule.verify(putRequestedFor(urlEqualTo("/geostore/users/5")));
         }
     }
@@ -231,19 +220,18 @@ public class HttpProxyIntegrationTests {
         System.setProperty("http.proxyHost", "");
         System.setProperty("http.proxyPort", "");
 
-        wireMockRule.addStubMapping(
-                stubFor(
-                        get(urlEqualTo("/geostore/resources"))
-                                .willReturn(
-                                        aResponse()
-                                                .withStatus(200))));
+        wireMockRule.stubFor(
+            get(urlEqualTo("/geostore/resources"))
+                .willReturn(
+                    aResponse()
+                      .withStatus(200)));
 
-        String url = "http://localhost:" + wireMockRule.port() + "/geostore/resources";
+        String url = "http://localhost:" + wireMockRule.getPort() + "/geostore/resources";
         String proxyURL = "http://localhost:" + localPort + "/http_proxy/proxy?url=" + url;
         HttpGet httpGet = new HttpGet(proxyURL);
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
             HttpResponse httpResponse = httpClient.execute(httpGet);
-            Assert.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
+            Assertions.assertEquals(200, httpResponse.getStatusLine().getStatusCode());
             wireMockRule.verify(getRequestedFor(urlEqualTo("/geostore/resources")));
         }
     }
@@ -255,10 +243,10 @@ public class HttpProxyIntegrationTests {
     public void testHttpDefaultPort() throws IOException {
         String urlStr = "http://localhost/geoserver/wms?service=wms%26version=1.3.0&request=GetCapabilities";
         URL url = Utils.buildURL(urlStr);
-        Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTP_PORT);
-        Assert.assertEquals(url.getProtocol(), "http");
-        Assert.assertEquals(url.getHost(), "localhost");
-        Assert.assertEquals(url.getFile(), "/geoserver/wms?service=wms%26version=1.3.0&request=GetCapabilities");
+        Assertions.assertEquals(url.getPort(), Utils.DEFAULT_HTTP_PORT);
+        Assertions.assertEquals(url.getProtocol(), "http");
+        Assertions.assertEquals(url.getHost(), "localhost");
+        Assertions.assertEquals(url.getFile(), "/geoserver/wms?service=wms%26version=1.3.0&request=GetCapabilities");
     }
 
     /**
@@ -268,14 +256,14 @@ public class HttpProxyIntegrationTests {
     public void testHttpsDefaultPort() throws IOException {
         String urlStr = "https://georchestra.geo-solutions.it/geoserver/wms?service=WMS%26version=1.3.0&request=GetCapabilities";
         URL url = Utils.buildURL(urlStr);
-        Assert.assertEquals(url.getPort(), Utils.DEFAULT_HTTPS_PORT);
-        Assert.assertEquals(url.getProtocol(), "https");
-        Assert.assertEquals(url.getHost(), "georchestra.geo-solutions.it");
-        Assert.assertEquals(url.getFile(), "/geoserver/wms?service=WMS%26version=1.3.0&request=GetCapabilities");
+        Assertions.assertEquals(url.getPort(), Utils.DEFAULT_HTTPS_PORT);
+        Assertions.assertEquals(url.getProtocol(), "https");
+        Assertions.assertEquals(url.getHost(), "georchestra.geo-solutions.it");
+        Assertions.assertEquals(url.getFile(), "/geoserver/wms?service=WMS%26version=1.3.0&request=GetCapabilities");
     }
 
 
-    @AfterClass
+    @AfterAll
     public static void stopServer() {
         try {
 

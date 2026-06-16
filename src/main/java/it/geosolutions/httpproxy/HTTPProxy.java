@@ -33,24 +33,22 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.StringTokenizer;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
+import org.apache.commons.fileupload2.core.DiskFileItemFactory;
+import org.apache.commons.fileupload2.core.FileItem;
+import org.apache.commons.fileupload2.core.FileUploadException;
+import org.apache.commons.fileupload2.jakarta.servlet6.JakartaServletFileUpload;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpException;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -67,7 +65,6 @@ import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.ContentBody;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.slf4j.LoggerFactory;
@@ -232,7 +229,7 @@ public class HTTPProxy extends HttpServlet {
         };
     }
 
-    private Boolean isNonProxyHost(String host) {
+    private boolean isNonProxyHost(String host) {
         boolean isNonProxyHost = false;
         String nonProxyHostProp = System.getProperty("http.nonProxyHosts");
         if (nonProxyHostProp != null) {
@@ -243,9 +240,8 @@ public class HTTPProxy extends HttpServlet {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
             LOGGER.info("http.nonProxyHosts value: " + nonProxyHostProp);
-            StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
-            while (tokenizer.hasMoreTokens()) {
-                String str = tokenizer.nextToken().trim();
+            for (String token : nonProxyHostProp.split("\\|")) {
+                String str = token.trim();
                 str = str.replace("*", "[\\w-]*");
                 Pattern pattern = Pattern.compile(str);
                 Matcher matcher = pattern.matcher(host);
@@ -304,12 +300,11 @@ public class HTTPProxy extends HttpServlet {
             URL url = null;
             String user = null, password = null;
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+            Set<Map.Entry<String, String[]>> entrySet = httpServletRequest.getParameterMap().entrySet();
 
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
+            for (Map.Entry<String, String[]> header : entrySet) {
+                String key = header.getKey();
+                String value = header.getValue()[0];
 
                 if ("user".equals(key)) {
                     user = value;
@@ -405,7 +400,7 @@ public class HTTPProxy extends HttpServlet {
                 // Check if this is a mulitpart (file upload) POST
                 // //////////////////////////////////////////////////
 
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
+                if (JakartaServletFileUpload.isMultipartContent(httpServletRequest)) {
                     this.handleMultipart(postMethodProxyRequest, httpServletRequest);
                 } else {
                     this.handleStandard(postMethodProxyRequest, httpServletRequest);
@@ -479,7 +474,7 @@ public class HTTPProxy extends HttpServlet {
                 // Check if this is a mulitpart (file upload) PUT
                 // //////////////////////////////////////////////////
 
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
+                if (JakartaServletFileUpload.isMultipartContent(httpServletRequest)) {
                     this.handleMultipart(putMethodProxyRequest, httpServletRequest);
                 } else {
                     this.handleStandard(putMethodProxyRequest, httpServletRequest);
@@ -568,28 +563,25 @@ public class HTTPProxy extends HttpServlet {
      *
      * @param postMethodProxyRequest The {@link PostMethod} that we are configuring to send a multipart POST request
      * @param httpServletRequest     The {@link HttpServletRequest} that contains the mutlipart POST data to be sent via the {@link PostMethod}
+     * @throws IOException 
      */
     private void handleMultipart(HttpRequestBase methodProxyRequest,
-                                 HttpServletRequest httpServletRequest) throws ServletException {
+                                 HttpServletRequest httpServletRequest) throws ServletException, IOException {
 
         // ////////////////////////////////////////////
         // Create a factory for disk-based file items
         // ////////////////////////////////////////////
 
-        DiskFileItemFactory diskFileItemFactory = new DiskFileItemFactory();
-
-        // /////////////////////////////
-        // Set factory constraints
-        // /////////////////////////////
-
-        diskFileItemFactory.setSizeThreshold(this.getMaxFileUploadSize());
-        diskFileItemFactory.setRepository(Utils.DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY);
+        DiskFileItemFactory diskFileItemFactory = DiskFileItemFactory.builder()
+                .setBufferSize(this.getMaxFileUploadSize())
+                .setPath(Utils.DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY.toPath())
+                .get();
 
         // //////////////////////////////////
         // Create a new file upload handler
         // //////////////////////////////////
 
-        ServletFileUpload servletFileUpload = new ServletFileUpload(diskFileItemFactory);
+        JakartaServletFileUpload servletFileUpload = new JakartaServletFileUpload(diskFileItemFactory);
 
         // //////////////////////////
         // Parse the request
@@ -601,7 +593,7 @@ public class HTTPProxy extends HttpServlet {
             // Get the multipart items as a list
             // /////////////////////////////////////
 
-            List<FileItem> listFileItems = (List<FileItem>) servletFileUpload
+            List<FileItem> listFileItems = servletFileUpload
                     .parseRequest(httpServletRequest);
 
             // /////////////////////////////////////////
@@ -692,8 +684,6 @@ public class HTTPProxy extends HttpServlet {
             httpClient = null;
             httpClient = createHttpClient();
         }
-
-        InputStream inputStreamServerResponse = null;
 
         try {
 
@@ -788,29 +778,21 @@ public class HTTPProxy extends HttpServlet {
             // Send the content to the client
             // ///////////////////////////////////
 
-            inputStreamServerResponse = response.getEntity().getContent();
+            try (InputStream inputStreamServerResponse = response.getEntity().getContent()) {
+                if (inputStreamServerResponse != null) {
+                    byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
 
-            if (inputStreamServerResponse != null) {
-                byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
-
-                int read = 0;
-                ServletOutputStream out = httpServletResponse.getOutputStream();
-                while ((read = inputStreamServerResponse.read(b)) > 0) {
-                    out.write(b, 0, read);
+                    int read;
+                    ServletOutputStream out = httpServletResponse.getOutputStream();
+                    while ((read = inputStreamServerResponse.read(b)) > 0) {
+                        out.write(b, 0, read);
+                    }
                 }
             }
 
         } catch (Exception e) {
             LOGGER.error("Error executing HTTP method", e);
         } finally {
-            try {
-                if (inputStreamServerResponse != null)
-                    inputStreamServerResponse.close();
-            } catch (IOException e) {
-                LOGGER.error("Error closing request input stream", e);
-                throw new ServletException(e.getMessage());
-            }
-
             httpMethodProxyRequest.releaseConnection();
         }
     }
@@ -831,7 +813,6 @@ public class HTTPProxy extends HttpServlet {
      * @param httpMethodProxyRequest The request that we are about to send to the proxy host
      * @return ProxyInfo
      */
-    @SuppressWarnings("rawtypes")
     private ProxyInfo setProxyRequestHeaders(URL url, HttpServletRequest httpServletRequest,
                                              HttpRequestBase httpMethodProxyRequest) {
 
@@ -845,7 +826,7 @@ public class HTTPProxy extends HttpServlet {
         // names sent by the client.
         // ////////////////////////////////////////
 
-        Enumeration enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
+        Enumeration<String> enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
 
         // ////////////////////////////////////////
         // Load header whitelist/blacklist for
@@ -856,7 +837,7 @@ public class HTTPProxy extends HttpServlet {
         Set<String> headerBlacklist = proxyConfig.getRequestHeaderBlacklist();
 
         while (enumerationOfHeaderNames.hasMoreElements()) {
-            String stringHeaderName = (String) enumerationOfHeaderNames.nextElement();
+            String stringHeaderName = enumerationOfHeaderNames.nextElement();
 
             if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME))
                 continue;
@@ -890,10 +871,10 @@ public class HTTPProxy extends HttpServlet {
             // Thus, we get an Enumeration of the header values sent by the client
             // ////////////////////////////////////////////////////////////////////////
 
-            Enumeration enumerationOfHeaderValues = httpServletRequest.getHeaders(stringHeaderName);
+            Enumeration<String> enumerationOfHeaderValues = httpServletRequest.getHeaders(stringHeaderName);
 
             while (enumerationOfHeaderValues.hasMoreElements()) {
-                String stringHeaderValue = (String) enumerationOfHeaderValues.nextElement();
+                String stringHeaderValue = enumerationOfHeaderValues.nextElement();
 
                 // ////////////////////////////////////////////////////////////////
                 // In case the proxy host is running multiple virtual servers,
