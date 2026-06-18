@@ -65,13 +65,13 @@ public class Start {
             jettyServer.join();
 
         } catch (Exception e) {
-            LOGGER.error("Could not start the Jetty server: " + e.getMessage(), e);
+            LOGGER.error("Could not start the Jetty server: {}", e.getMessage(), e);
 
             if (jettyServer != null) {
                 try {
                     jettyServer.stop();
                 } catch (Exception e1) {
-                    LOGGER.error("Unable to stop the Jetty server: " + e1.getMessage(), e1);
+                    LOGGER.error("Unable to stop the Jetty server: {}", e1.getMessage(), e1);
                 }
             }
         }

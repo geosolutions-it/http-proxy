@@ -19,21 +19,19 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+
 import java.io.IOException;
 import java.net.URL;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
-
 /**
  * RequestTypeChecker class for request type check.
- * 
+ *
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
 public class RequestTypeChecker implements ProxyCallback {
@@ -49,7 +47,7 @@ public class RequestTypeChecker implements ProxyCallback {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
@@ -61,18 +59,11 @@ public class RequestTypeChecker implements ProxyCallback {
         // provided vs. permitted request types
         // //////////////////////////////////////
 
-        if (reqTypes != null && reqTypes.size() > 0) {
-            Iterator<String> iterator = reqTypes.iterator();
-
+        if (reqTypes != null && !reqTypes.isEmpty()) {
             String urlExtForm = url.toExternalForm();
-            /*if (urlExtForm.indexOf("?") != -1) {
-                urlExtForm = urlExtForm.split("\\?")[1];
-            }*/
 
             boolean check = false;
-            while (iterator.hasNext()) {
-                String regex = iterator.next();
-
+            for (String regex : reqTypes) {
                 Pattern pattern = Pattern.compile(regex);
                 Matcher matcher = pattern.matcher(urlExtForm);
 
@@ -84,24 +75,23 @@ public class RequestTypeChecker implements ProxyCallback {
 
             if (!check)
                 throw new HttpErrorException(403, "Request Type"
-                        + " is not among the ones allowed for this proxy");
+                                                  + " is not among the ones allowed for this proxy");
         }
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpUriRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpUriRequestBase method) {
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onFinish()
      */
-    public void onFinish() throws IOException {
+    public void onFinish() {
     }
-
 }

@@ -21,12 +21,10 @@ package it.geosolutions.httpproxy;
 
 /**
  * Simple placeholder class for the proxy information.
- * 
+ *
  * @author Simone Giannecchini, GeoSolutions SAS
  */
 final class ProxyInfo {
-
-    private static final String DEFAULT_PROXY_APTH = "";
 
     // Proxy host params
     /**
@@ -35,17 +33,16 @@ final class ProxyInfo {
     private String proxyHost;
 
     /**
-     * The (optional) path on the proxy host to wihch we are proxying requests. Default value is "".
+     * The (optional) path on the proxy host to which we are proxying requests. Default value is "".
      */
-    private String proxyPath = DEFAULT_PROXY_APTH;
+    private String proxyPath;
 
     /**
-     * The port on the proxy host to wihch we are proxying requests. Default value is 80.
+     * The port on the proxy host to which we are proxying requests. Default value is 80.
      */
-    private int proxyPort = Utils.DEFAULT_PROXY_PORT;
+    private int proxyPort;
 
     public ProxyInfo(String proxyHost, String proxyPath, int proxyPort) {
-        super();
         this.proxyHost = proxyHost;
         this.proxyPath = proxyPath;
         this.proxyPort = proxyPort;

@@ -19,6 +19,22 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletInputStream;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicHeader;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.io.File;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -29,31 +45,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import jakarta.servlet.ServletConfig;
-import jakarta.servlet.ServletContext;
-import jakarta.servlet.ServletInputStream;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import org.apache.hc.core5.http.message.BasicHeader;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * HttpProxyTest class. Test Cases for the HTTPProxy servlet.
  *
  * @author Lorenzo Natali at lorenzo.natali@geo-solutions.it
  */
-public class HttpProxyTest {
+class HttpProxyTest {
 
     final ServletConfig servletConfig = mock(ServletConfig.class);
     ServletContext ctx = mock(ServletContext.class);
@@ -65,7 +72,7 @@ public class HttpProxyTest {
     String fakeLocation;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         File f = new File(getClass().getClassLoader()
                 .getResource("test-proxy.properties").getFile());
         when(ctx.getInitParameter("proxyPropPath")).thenReturn(
@@ -78,7 +85,7 @@ public class HttpProxyTest {
     }
 
     @Test
-    public void testRedirectGet() throws Exception {
+    void testRedirectGet() throws Exception {
 
         // mock redirect response
         final HttpGet mockGetMethod = mock(HttpGet.class);
@@ -86,7 +93,10 @@ public class HttpProxyTest {
         when(response.getCode()).thenReturn(302);
 
         mockHttpClient = mock(CloseableHttpClient.class);
-        when(mockHttpClient.execute(mockGetMethod)).thenReturn(response);
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
         fakeLocation = "http://newURL.com/";
 
         when(mockGetMethod.getFirstHeader(Utils.LOCATION_HEADER))
@@ -118,14 +128,14 @@ public class HttpProxyTest {
         proxy.doGet(getRequest, getResponse);
         verify(getResponse).sendRedirect(
                 "http://proxy.com/http-proxy/proxy?url="
-                        + URLEncoder.encode(fakeLocation, "UTF-8"));
+                + URLEncoder.encode(fakeLocation, "UTF-8"));
         final byte[] data = servletOutputStream.baos.toByteArray();
-        Assertions.assertNotNull(data);
-        Assertions.assertTrue(data.length == 0);
+        assertNotNull(data);
+        assertEquals(0, data.length);
     }
 
     @Test
-    public void testPost() throws Exception {
+    void testPost() throws Exception {
 
         // mock post response
         final HttpPost mockPostMethod = mock(HttpPost.class);
@@ -136,7 +146,10 @@ public class HttpProxyTest {
         when(response.getEntity()).thenReturn(stringEntity);
         when(response.headerIterator()).thenReturn(Collections.<org.apache.hc.core5.http.Header>emptyList().iterator());
         mockHttpClient = mock(CloseableHttpClient.class);
-        when(mockHttpClient.execute(mockPostMethod)).thenReturn(response);
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockPostMethod), any(HttpClientResponseHandler.class));
 
         proxy = new HTTPProxy() {
             private static final long serialVersionUID = 1L;
@@ -168,8 +181,7 @@ public class HttpProxyTest {
         proxy.doPost(postRequest, getResponse);
         verify(getResponse).setStatus(200);
         final byte[] data = servletOutputStream.baos.toByteArray();
-        Assertions.assertNotNull(data);
-        Assertions.assertTrue(data.length != 0);
+        assertNotNull(data);
+        assertNotEquals(0, data.length);
     }
-
 }

@@ -19,24 +19,23 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+
 import java.io.IOException;
 import java.net.URL;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
-
 /**
  * A pluggable callback that can perform checks or alter the request.
- * 
+ *
  * @author Andrea Aime - GeoSolutions
  */
 public interface ProxyCallback {
 
     /**
      * First to be called, can be used to initialize the callback status and disallow certain requests by throwing an {@link HttpErrorException}
-     * 
+     *
      * @throws IOException
      */
     void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
@@ -44,7 +43,7 @@ public interface ProxyCallback {
 
     /**
      * Second to be called, can be used to check the remote server response
-     * 
+     *
      * @param method
      * @throws IOException
      */
@@ -52,7 +51,7 @@ public interface ProxyCallback {
 
     /**
      * Called when the request is fully proxied, can be used for cleanup actions
-     * 
+     *
      * @throws IOException
      */
     void onFinish() throws IOException;
