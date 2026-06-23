@@ -1,6 +1,5 @@
 ![Build Status](https://github.com/geosolutions-it/http-proxy/actions/workflows/CI.yml/badge.svg)
 
-
 http-proxy is a simple Java based HTTP Proxy that can be used to make cross origin calls from JavaScript based web applications.
 
 It is free and Open Source, for information on the license please see the LICENSE file.
