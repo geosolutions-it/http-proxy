@@ -702,12 +702,15 @@ public class HTTPProxy extends HttpServlet {
                 // Hooray for open source software
                 // ////////////////////////////////////////////////////////////////////////////////
 
-                if (getStatusCode(response) >= HttpServletResponse.SC_MULTIPLE_CHOICES /* 300 */
-                        && getStatusCode(response) < HttpServletResponse.SC_NOT_MODIFIED /* 304 */) {
+                int statusCode = getStatusCode(response);
+                if ((statusCode >= HttpServletResponse.SC_MULTIPLE_CHOICES /* 300 */
+                        && statusCode <= HttpServletResponse.SC_SEE_OTHER /* 303 */)
+                        || statusCode == HttpServletResponse.SC_TEMPORARY_REDIRECT /* 307 */
+                        || statusCode == 308 /* Permanent Redirect (no servlet-api constant) */) {
 
-                    String stringStatusCode = Integer.toString(getStatusCode(response));
-                    String stringLocation = httpMethodProxyRequest.getFirstHeader(
-                            Utils.LOCATION_HEADER).getValue();
+                    String stringStatusCode = Integer.toString(statusCode);
+                    var locationHeader = response.getFirstHeader(Utils.LOCATION_HEADER);
+                    String stringLocation = locationHeader != null ? locationHeader.getValue() : null;
 
                     if (stringLocation == null) {
                         throw new IOException("Received status code: " + stringStatusCode
@@ -725,7 +728,7 @@ public class HTTPProxy extends HttpServlet {
                     LOGGER.info("redirected to: {}", redirectURL);
                     return null;
 
-                } else if (getStatusCode(response) == HttpServletResponse.SC_NOT_MODIFIED) {
+                } else if (statusCode == HttpServletResponse.SC_NOT_MODIFIED) {
 
                     // ///////////////////////////////////////////////////////////////
                     // 304 needs special handling. See:
@@ -745,7 +748,7 @@ public class HTTPProxy extends HttpServlet {
                 // Pass the response code back to the client
                 // /////////////////////////////////////////////
 
-                httpServletResponse.setStatus(getStatusCode(response));
+                httpServletResponse.setStatus(statusCode);
 
                 // /////////////////////////////////////////////
                 // Pass response headers back to the client

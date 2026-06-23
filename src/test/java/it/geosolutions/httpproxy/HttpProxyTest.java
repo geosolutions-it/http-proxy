@@ -99,7 +99,7 @@ class HttpProxyTest {
         }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
         fakeLocation = "http://newURL.com/";
 
-        when(mockGetMethod.getFirstHeader(Utils.LOCATION_HEADER))
+        when(response.getFirstHeader(Utils.LOCATION_HEADER))
                 .thenReturn(new BasicHeader("Location", fakeLocation));
 
         proxy = new HTTPProxy() {
@@ -132,6 +132,52 @@ class HttpProxyTest {
         final byte[] data = servletOutputStream.baos.toByteArray();
         assertNotNull(data);
         assertEquals(0, data.length);
+    }
+
+    @Test
+    void testRedirectGet307() throws Exception {
+
+        // 307 Temporary Redirect must be handled as a redirect as well
+        final HttpGet mockGetMethod = mock(HttpGet.class);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(307);
+
+        mockHttpClient = mock(CloseableHttpClient.class);
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
+        fakeLocation = "http://newURL.com/";
+
+        // the Location header is read from the response, not the request
+        when(response.getFirstHeader(Utils.LOCATION_HEADER))
+                .thenReturn(new BasicHeader("Location", fakeLocation));
+
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public HttpGet getGetMethod(URL url) {
+                return mockGetMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getParameterMap()).thenReturn(parameters);
+        when(getRequest.getHeaderNames()).thenReturn(
+                Collections.enumeration(headers));
+        when(getRequest.getRequestURL()).thenReturn(
+                new StringBuffer("http://proxy.com/http-proxy/proxy"));
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+        final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
+        when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
+
+        proxy.doGet(getRequest, getResponse);
+        verify(getResponse).sendRedirect(
+                "http://proxy.com/http-proxy/proxy?url="
+                + URLEncoder.encode(fakeLocation, "UTF-8"));
     }
 
     @Test
