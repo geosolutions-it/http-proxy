@@ -19,18 +19,17 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.http.client.methods.HttpRequestBase;
-
 /**
  * HostNameChecker class for hostname check.
- * 
+ *
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
 public class HostNameChecker implements ProxyCallback {
@@ -46,7 +45,7 @@ public class HostNameChecker implements ProxyCallback {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
     public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
@@ -57,7 +56,7 @@ public class HostNameChecker implements ProxyCallback {
         // Check the whitelist of hosts
         // ////////////////////////////////
 
-        if (hostNames != null && hostNames.size() > 0) {
+        if (hostNames != null && !hostNames.isEmpty()) {
             String hostName = url.getHost();
 
             if (!hostNames.contains(hostName)) {
@@ -69,18 +68,18 @@ public class HostNameChecker implements ProxyCallback {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpUriRequestBase method) {
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onFinish()
      */
-    public void onFinish() throws IOException {
+    public void onFinish() {
     }
 
 }

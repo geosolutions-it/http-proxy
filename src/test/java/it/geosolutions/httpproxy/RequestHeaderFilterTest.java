@@ -19,45 +19,45 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.core5.http.Header;
+import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import java.io.File;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.entity.StringEntity;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
-
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Tests for request header whitelist and blacklist filtering.
  */
-public class RequestHeaderFilterTest extends Mockito {
+class RequestHeaderFilterTest {
 
     Map<String, String[]> parameters = new HashMap<>();
-    private List<Header> headers = new ArrayList<>();
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         // URL must match one of the reqtypeWhitelist patterns in proxy.properties
         parameters.put("url", new String[]{"http://sample.com/csw"});
     }
@@ -66,7 +66,7 @@ public class RequestHeaderFilterTest extends Mockito {
      * Helper to create a proxy configured with the given properties file resource.
      */
     private HTTPProxy createProxy(String propertiesResource, final HttpGet mockGetMethod,
-                                  HttpClient mockHttpClient) throws Exception {
+                                  CloseableHttpClient mockHttpClient) throws Exception {
         File f = new File(getClass().getClassLoader()
                 .getResource(propertiesResource).getFile());
 
@@ -91,22 +91,22 @@ public class RequestHeaderFilterTest extends Mockito {
     /**
      * Build a mock GET that returns a 200 with the given body.
      */
-    private HttpGet buildMockGet(HttpClient mockHttpClient) throws Exception {
+    private HttpGet buildMockGet(CloseableHttpClient mockHttpClient) throws Exception {
         HttpGet mockGetMethod = mock(HttpGet.class);
-        HttpResponse response = mock(HttpResponse.class);
-        StatusLine statusLine = mock(StatusLine.class);
-        when(statusLine.getStatusCode()).thenReturn(200);
-        when(response.getStatusLine()).thenReturn(statusLine);
-        HttpEntity entity = new StringEntity("OK");
-        when(response.getEntity()).thenReturn(entity);
-        when(response.getAllHeaders()).thenReturn(new Header[]{});
-        when(mockHttpClient.execute(mockGetMethod)).thenReturn(response);
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(200);
+        when(response.getEntity()).thenReturn(new StringEntity("OK"));
+        when(response.headerIterator()).thenReturn(Collections.<Header>emptyList().iterator());
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
         return mockGetMethod;
     }
 
     @Test
-    public void testBlacklistRemovesHeaders() throws Exception {
-        HttpClient mockHttpClient = mock(HttpClient.class);
+    void testBlacklistRemovesHeaders() throws Exception {
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",
@@ -135,14 +135,14 @@ public class RequestHeaderFilterTest extends Mockito {
         verify(mockGetMethod, never()).setHeader(eq("X-Secret"), anyString());
         verify(mockGetMethod, never()).setHeader(eq("Cookie"), anyString());
         // Accept should have been forwarded
-        verify(mockGetMethod).setHeader(eq("Accept"), eq("value-Accept"));
+        verify(mockGetMethod).setHeader("Accept", "value-Accept");
         // Host is rewritten to the target host
         verify(mockGetMethod).setHeader(eq("Host"), anyString());
     }
 
     @Test
-    public void testWhitelistOnlyForwardsAllowedHeaders() throws Exception {
-        HttpClient mockHttpClient = mock(HttpClient.class);
+    void testWhitelistOnlyForwardsAllowedHeaders() throws Exception {
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",
@@ -168,8 +168,8 @@ public class RequestHeaderFilterTest extends Mockito {
         proxy.doGet(request, response);
 
         // Whitelisted: Accept, Content-Type, Host should be forwarded
-        verify(mockGetMethod).setHeader(eq("Accept"), eq("value-Accept"));
-        verify(mockGetMethod).setHeader(eq("Content-Type"), eq("value-Content-Type"));
+        verify(mockGetMethod).setHeader("Accept", "value-Accept");
+        verify(mockGetMethod).setHeader("Content-Type", "value-Content-Type");
         verify(mockGetMethod).setHeader(eq("Host"), anyString());
         // NOT whitelisted: X-Custom, Authorization should be removed
         verify(mockGetMethod, never()).setHeader(eq("X-Custom"), anyString());
@@ -177,12 +177,12 @@ public class RequestHeaderFilterTest extends Mockito {
     }
 
     @Test
-    public void testBlacklistTakesPrecedenceOverWhitelist() throws Exception {
+    void testBlacklistTakesPrecedenceOverWhitelist() throws Exception {
         // proxy.properties has both whitelist (Accept,Content-Type,Host)
         // and blacklist (X-Secret,Cookie).
         // A header NOT in either list should be blocked by the whitelist.
         // A header in the blacklist should always be blocked even if it were whitelisted.
-        HttpClient mockHttpClient = mock(HttpClient.class);
+        CloseableHttpClient mockHttpClient = mock(CloseableHttpClient.class);
         final HttpGet mockGetMethod = buildMockGet(mockHttpClient);
 
         HTTPProxy proxy = createProxy("proxy.properties",
@@ -211,7 +211,7 @@ public class RequestHeaderFilterTest extends Mockito {
         proxy.doGet(request, response);
 
         // Accept: whitelisted and not blacklisted -> forwarded
-        verify(mockGetMethod).setHeader(eq("Accept"), eq("value-Accept"));
+        verify(mockGetMethod).setHeader("Accept", "value-Accept");
         // X-Secret: blacklisted -> blocked
         verify(mockGetMethod, never()).setHeader(eq("X-Secret"), anyString());
         // Authorization: not in whitelist -> blocked

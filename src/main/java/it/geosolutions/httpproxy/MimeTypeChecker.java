@@ -19,21 +19,20 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.core5.http.Header;
+
 import java.io.IOException;
 import java.net.URL;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.http.Header;
-import org.apache.http.client.methods.HttpRequestBase;
-
 /**
  * MimeTypeChecker class for the mimetype check.
- * 
+ *
  * @author Andrea Aime - GeoSolutions
- * 
+ *
  */
 public class MimeTypeChecker implements ProxyCallback {
 
@@ -48,28 +47,27 @@ public class MimeTypeChecker implements ProxyCallback {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRequest(javax.servlet.http.HttpServletRequest, javax.servlet.http.HttpServletResponse)
      */
-    public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url)
-            throws IOException {
+    public void onRequest(HttpServletRequest request, HttpServletResponse response, URL url) {
     }
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpRequestBase method) throws IOException {
+    public void onRemoteResponse(HttpUriRequestBase method) throws IOException {
         Set<String> mimeTypes = config.getMimetypeWhitelist();
 
-        if (mimeTypes != null && mimeTypes.size() > 0) {
+        if (mimeTypes != null && !mimeTypes.isEmpty()) {
             Header header = method.getFirstHeader("Content-type");
-            
-            
-            if(header != null){              	
-            	String contentType = header.getValue();
-            	
+
+
+            if (header != null) {
+                String contentType = header.getValue();
+
                 // //////////////////////////////////
                 // Trim off extraneous information
                 // //////////////////////////////////
@@ -78,7 +76,7 @@ public class MimeTypeChecker implements ProxyCallback {
 
                 if (!mimeTypes.contains(firstType)) {
                     throw new HttpErrorException(403, "Content-type " + firstType
-                            + " is not among the ones allowed for this proxy");
+                                                      + " is not among the ones allowed for this proxy");
                 }
             }
 
@@ -88,10 +86,10 @@ public class MimeTypeChecker implements ProxyCallback {
 
     /*
      * (non-Javadoc)
-     * 
+     *
      * @see it.geosolutions.httpproxy.ProxyCallback#onFinish()
      */
-    public void onFinish() throws IOException {
+    public void onFinish() {
     }
 
 }

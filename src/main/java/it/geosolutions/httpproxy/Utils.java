@@ -91,7 +91,7 @@ final class Utils {
      * @param ch
      * @return
      */
-    final static int escapeHtmlFull(int ch) {
+    static int escapeHtmlFull(int ch) {
         if (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z' || ch >= '0' && ch <= '9') {
             // safe
             return ch;
@@ -122,7 +122,7 @@ final class Utils {
      * @param proxyInfo
      * @return String
      */
-    static final String getProxyHostAndPort(ProxyInfo proxyInfo) {
+    static String getProxyHostAndPort(ProxyInfo proxyInfo) {
         if (proxyInfo.getProxyPort() == 80) {
             return proxyInfo.getProxyHost();
         } else {
@@ -134,14 +134,11 @@ final class Utils {
      * @param property
      * @return Set<String>
      */
-    static final Set<String> parseWhiteList(String property) {
+    static Set<String> parseWhiteList(String property) {
         if (property != null) {
-            Set<String> set = new HashSet<String>();
+            Set<String> set = new HashSet<>();
 
-            String[] array = property.split(",");
-
-            for (int i = 0; i < array.length; i++) {
-                String element = array[i];
+            for (String element : property.split(",")) {
                 if (element != null)
                     set.add(element);
             }
@@ -173,12 +170,12 @@ final class Utils {
         if (url.getPort() == -1) {
             if (url.getProtocol().equals("https")) {
                 if (LOGGER.isDebugEnabled()) {
-                    LOGGER.info("Using default HTTPS port: " + DEFAULT_HTTPS_PORT);
+                    LOGGER.info("Using default HTTPS port: {}", DEFAULT_HTTPS_PORT);
                 }
                 return new URL(url.getProtocol(), url.getHost(), DEFAULT_HTTPS_PORT, url.getFile());
             } else {
                 if (LOGGER.isDebugEnabled()) {
-                    LOGGER.info("Using default HTTP port: " + DEFAULT_HTTP_PORT);
+                    LOGGER.info("Using default HTTP port: {}", DEFAULT_HTTP_PORT);
                 }
                 return new URL(url.getProtocol(), url.getHost(), DEFAULT_HTTP_PORT, url.getFile());
             }

@@ -19,6 +19,10 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.ServletContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -26,56 +30,52 @@ import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.servlet.ServletContext;
 
 /**
  * ProxyConfig class to define the proxy configuration.
- * 
+ *
  * @author Tobia Di Pisa at tobia.dipisa@geo-solutions.it
  */
 final class ProxyConfig {
 
-    private final static Logger LOGGER = Logger.getLogger(ProxyConfig.class.toString());
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProxyConfig.class);
 
     /**
      * A list of regular expressions describing hostnames the proxy is permitted to forward to
      */
-    private Set<String> hostnameWhitelist = new HashSet<String>();
+    private Set<String> hostnameWhitelist = new HashSet<>();
 
     /**
      * A list of regular expressions describing MIMETypes the proxy is permitted to forward
      */
-    private Set<String> mimetypeWhitelist = new HashSet<String>();
+    private Set<String> mimetypeWhitelist = new HashSet<>();
 
     /**
      * A list of regular expressions describing Request Types the proxy is permitted to forward
      */
-    private Set<String> reqtypeWhitelist = new HashSet<String>();
+    private Set<String> reqtypeWhitelist = new HashSet<>();
 
     /**
      * A list of regular expressions describing request METHODS the proxy is permitted to forward
      */
-    private Set<String> methodsWhitelist = new HashSet<String>();
+    private Set<String> methodsWhitelist = new HashSet<>();
 
     /**
      * A list of regular expressions describing request HOSTS the proxy is permitted to forward
      */
-    private Set<String> hostsWhitelist = new HashSet<String>();
+    private Set<String> hostsWhitelist = new HashSet<>();
 
     /**
      * A list of request header names (case-insensitive) that the proxy is permitted to forward.
      * If non-empty, only headers in this set will be forwarded.
      */
-    private Set<String> requestHeaderWhitelist = new HashSet<String>();
+    private Set<String> requestHeaderWhitelist = new HashSet<>();
 
     /**
      * A list of request header names (case-insensitive) that the proxy must NOT forward.
      * Headers in this set will always be removed, even if they appear in the whitelist.
      */
-    private Set<String> requestHeaderBlacklist = new HashSet<String>();
+    private Set<String> requestHeaderBlacklist = new HashSet<>();
 
     /**
      * The servlet context
@@ -106,10 +106,10 @@ final class ProxyConfig {
      * The maximum connections available per host
      */
     private int defaultMaxConnectionsPerHost = 6;
-    
+
     private int defaultStreamByteSize = 1024;
 
-	/**
+    /**
      * @param context
      * @param propertiesFilePath
      */
@@ -122,8 +122,6 @@ final class ProxyConfig {
 
     /**
      * Provide the proxy configuration
-     * 
-     * @throws IOException
      */
     private void configProxy() {
         Properties props = propertiesLoader();
@@ -161,7 +159,7 @@ final class ProxyConfig {
             // Read various request type properties
             // ////////////////////////////////////////
 
-            Set<String> rt = new HashSet<String>();
+            Set<String> rt = new HashSet<>();
             String s = props.getProperty("reqtypeWhitelist.capabilities");
             if (s != null)
                 rt.add(s);
@@ -173,11 +171,11 @@ final class ProxyConfig {
             s = props.getProperty("reqtypeWhitelist.csw");
             if (s != null)
                 rt.add(s);
-            
+
             s = props.getProperty("reqtypeWhitelist.featureinfo");
             if (s != null)
                 rt.add(s);
-            
+
             s = props.getProperty("reqtypeWhitelist.generic");
             if (s != null)
                 rt.add(s);
@@ -189,16 +187,16 @@ final class ProxyConfig {
                 // Load byte size configuration from
                 // properties file.
                 // /////////////////////////////////////////////////
-            	
+
                 String bytesSize = props.getProperty("defaultStreamByteSize");
-                this.setDefaultStreamByteSize(bytesSize != null ? Integer.parseInt(bytesSize) : 
-                	this.defaultStreamByteSize);
-                
+                this.setDefaultStreamByteSize(bytesSize != null ? Integer.parseInt(bytesSize) :
+                        this.defaultStreamByteSize);
+
                 // /////////////////////////////////////////////////
                 // Load connection manager configuration from
                 // properties file.
                 // /////////////////////////////////////////////////
-                
+
                 String timeout = props.getProperty("timeout");
                 this.setSoTimeout(timeout != null ? Integer.parseInt(timeout) : this.soTimeout);
 
@@ -215,9 +213,7 @@ final class ProxyConfig {
                         : this.defaultMaxConnectionsPerHost);
 
             } catch (NumberFormatException e) {
-                if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE,
-                            "Error parsing the proxy properties file using default", e);
+                LOGGER.error("Error parsing proxy configuration: {}", e.getMessage(), e);
 
                 this.setSoTimeout(this.soTimeout);
                 this.setConnectionTimeout(this.connectionTimeout);
@@ -230,13 +226,13 @@ final class ProxyConfig {
 
     /**
      * Read the proxy properties file.
-     * 
+     *
      * @return Properties
      */
     public Properties propertiesLoader() {
         Properties props = new Properties();
         // can specify more paths, comma separated, all are read, if they exist
-        for (String path : propertiesFilePath.split(",") ) {
+        for (String path : propertiesFilePath.split(",")) {
             mergePropertiesConfig(path, props);
         }
         return props;
@@ -248,25 +244,16 @@ final class ProxyConfig {
             try {
                 inputStream = new FileInputStream(path);
             } catch (FileNotFoundException e) {
-                if (LOGGER.isLoggable(Level.WARNING))
-                    LOGGER.log(Level.WARNING, "The properties file " + path + " cannot be found");
+                LOGGER.warn("The properties file {} cannot be found", path);
             }
         }
         if (inputStream != null) {
-            Properties props = new Properties();
-            try {
-                props.load(inputStream);
+            try (InputStream is = inputStream) {
+                Properties props = new Properties();
+                props.load(is);
                 properties.putAll(props);
             } catch (IOException e) {
-                if (LOGGER.isLoggable(Level.SEVERE))
-                    LOGGER.log(Level.SEVERE, "Error loading the proxy properties file from " + path, e);
-            } finally {
-                if (inputStream != null)
-                    try {
-                        inputStream.close();
-                    } catch (IOException e) {
-                        
-                    }
+                LOGGER.error("Error loading the proxy properties file from {}", path, e);
             }
         }
     }
@@ -378,7 +365,7 @@ final class ProxyConfig {
         Properties props = propertiesLoader();
 
         if (props != null) {
-            Set<String> rt = new HashSet<String>();
+            Set<String> rt = new HashSet<>();
             String s = props.getProperty("reqtypeWhitelist.capabilities");
             if (s != null)
                 rt.add(s);
@@ -390,11 +377,11 @@ final class ProxyConfig {
             s = props.getProperty("reqtypeWhitelist.csw");
             if (s != null)
                 rt.add(s);
-            
+
             s = props.getProperty("reqtypeWhitelist.featureinfo");
             if (s != null)
                 rt.add(s);
-            
+
             s = props.getProperty("reqtypeWhitelist.generic");
             if (s != null)
                 rt.add(s);
@@ -527,19 +514,19 @@ final class ProxyConfig {
     public void setPropertiesFilePath(String propertiesFilePath) {
         this.propertiesFilePath = propertiesFilePath;
     }
-    
-    /**
-	 * @return the defaultStreamByteSize
-	 */
-	public int getDefaultStreamByteSize() {
-		return defaultStreamByteSize;
-	}
 
-	/**
-	 * @param defaultStreamByteSize the defaultStreamByteSize to set
-	 */
-	public void setDefaultStreamByteSize(int defaultStreamByteSize) {
-		this.defaultStreamByteSize = defaultStreamByteSize;
-	}
+    /**
+     * @return the defaultStreamByteSize
+     */
+    public int getDefaultStreamByteSize() {
+        return defaultStreamByteSize;
+    }
+
+    /**
+     * @param defaultStreamByteSize the defaultStreamByteSize to set
+     */
+    public void setDefaultStreamByteSize(int defaultStreamByteSize) {
+        this.defaultStreamByteSize = defaultStreamByteSize;
+    }
 
 }

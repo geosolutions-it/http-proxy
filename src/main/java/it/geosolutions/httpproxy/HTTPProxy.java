@@ -19,58 +19,56 @@
  */
 package it.geosolutions.httpproxy;
 
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.fileupload2.core.DiskFileItemFactory;
+import org.apache.commons.fileupload2.core.FileItem;
+import org.apache.commons.fileupload2.core.FileUploadException;
+import org.apache.commons.fileupload2.jakarta.servlet6.JakartaServletFileUpload;
+import org.apache.hc.client5.http.HttpRoute;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.Credentials;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.classic.methods.HttpDelete;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.classic.methods.HttpPut;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.client5.http.entity.mime.ContentBody;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.routing.HttpRoutePlanner;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpException;
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.io.entity.InputStreamEntity;
+import org.apache.hc.core5.http.protocol.HttpContext;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Enumeration;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.StringTokenizer;
-
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletOutputStream;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.apache.commons.fileupload.FileItem;
-import org.apache.commons.fileupload.FileUploadException;
-import org.apache.commons.fileupload.disk.DiskFileItemFactory;
-import org.apache.commons.fileupload.servlet.ServletFileUpload;
-
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpException;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.StatusLine;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.*;
-import org.apache.http.conn.routing.HttpRoute;
-import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.entity.InputStreamEntity;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.entity.mime.content.ContentBody;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.protocol.HttpContext;
-import org.slf4j.LoggerFactory;
 
 /**
  * HTTPProxy class.
@@ -90,11 +88,6 @@ public class HTTPProxy extends HttpServlet {
 
 
     /**
-     * The maximum size for uploaded files in bytes. Default value is 5MB.
-     */
-    private int maxFileUploadSize = Utils.DEFAULT_MAX_FILE_UPLOAD_SIZE;
-
-    /**
      * An Apache commons HTTP client backed by a multithreaded connection manager that allows to reuse connections to the backing server and to limit
      * the max number of concurrent connections.
      */
@@ -104,7 +97,7 @@ public class HTTPProxy extends HttpServlet {
     /**
      * An HTTP "user-agent", containing an HTTP state and one or more HTTP connections, to which HTTP methods can be applied.
      */
-    private HttpClient httpClient;
+    private CloseableHttpClient httpClient;
 
 
     /**
@@ -124,6 +117,7 @@ public class HTTPProxy extends HttpServlet {
      *
      * @param servletConfig The Servlet configuration passed in by the servlet conatiner
      */
+    @Override
     public void init(ServletConfig servletConfig) throws ServletException {
         super.init(servletConfig);
 
@@ -144,7 +138,7 @@ public class HTTPProxy extends HttpServlet {
         // will be a pluggable lookup).
         // //////////////////////////////////////////
 
-        callbacks = new ArrayList<ProxyCallback>();
+        callbacks = new ArrayList<>();
         callbacks.add(new MimeTypeChecker(proxyConfig));
         callbacks.add(new HostNameChecker(proxyConfig));
         callbacks.add(new RequestTypeChecker(proxyConfig));
@@ -156,14 +150,14 @@ public class HTTPProxy extends HttpServlet {
      * Creates the HttpClient
      * @return HttpClient
      */
-    public HttpClient createHttpClient() {
+    public CloseableHttpClient createHttpClient() {
         if (httpClient != null)
             return httpClient;
 
         final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        LOGGER.debug("HTTP proxy host: " + httpHost);
+        LOGGER.debug("HTTP proxy host: {}", httpHost);
         final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        LOGGER.debug("HTTPS proxy host: " + httpsHost);
+        LOGGER.debug("HTTPS proxy host: {}", httpsHost);
 
         HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
 
@@ -197,9 +191,8 @@ public class HTTPProxy extends HttpServlet {
         return new HttpRoutePlanner() {
             public HttpRoute determineRoute(
                     HttpHost target,
-                    HttpRequest request,
-                    HttpContext context) {
-                LOGGER.info("HTTP proxy target host: " + target);
+                    HttpContext context) throws HttpException {
+                LOGGER.info("HTTP proxy target host: {}", target);
                 if (isNonProxyHost(target.getHostName())) {
                     LOGGER.info("Returning direct route");
                     // Return direct route
@@ -232,7 +225,7 @@ public class HTTPProxy extends HttpServlet {
         };
     }
 
-    private Boolean isNonProxyHost(String host) {
+    private boolean isNonProxyHost(String host) {
         boolean isNonProxyHost = false;
         String nonProxyHostProp = System.getProperty("http.nonProxyHosts");
         if (nonProxyHostProp != null) {
@@ -242,15 +235,14 @@ public class HTTPProxy extends HttpServlet {
             if (nonProxyHostProp.endsWith("\"")) {
                 nonProxyHostProp = nonProxyHostProp.substring(0, nonProxyHostProp.length() - 1);
             }
-            LOGGER.info("http.nonProxyHosts value: " + nonProxyHostProp);
-            StringTokenizer tokenizer = new StringTokenizer(nonProxyHostProp, "|");
-            while (tokenizer.hasMoreTokens()) {
-                String str = tokenizer.nextToken().trim();
+            LOGGER.info("http.nonProxyHosts value: {}", nonProxyHostProp);
+            for (String token : nonProxyHostProp.split("\\|")) {
+                String str = token.trim();
                 str = str.replace("*", "[\\w-]*");
                 Pattern pattern = Pattern.compile(str);
                 Matcher matcher = pattern.matcher(host);
                 if (matcher.matches()) {
-                    LOGGER.info("Non proxy host matched for: " + str);
+                    LOGGER.info("Non proxy host matched for: {}", str);
                     isNonProxyHost = true;
                     break;
                 }
@@ -275,7 +267,7 @@ public class HTTPProxy extends HttpServlet {
      * @param method
      * @throws IOException
      */
-    void onRemoteResponse(HttpRequestBase method) throws IOException {
+    void onRemoteResponse(HttpUriRequestBase method) throws IOException {
         for (ProxyCallback callback : callbacks) {
             callback.onRemoteResponse(method);
         }
@@ -296,20 +288,21 @@ public class HTTPProxy extends HttpServlet {
      * @param httpServletRequest  The {@link HttpServletRequest} object passed in by the servlet engine representing the client request to be proxied
      * @param httpServletResponse The {@link HttpServletResponse} object by which we can send a proxied response to the client
      */
+    @Override
     public void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
             throws IOException, ServletException {
 
         try {
 
             URL url = null;
-            String user = null, password = null;
+            String user = null;
+            String password = null;
 
-            Set<?> entrySet = httpServletRequest.getParameterMap().entrySet();
+            Set<Map.Entry<String, String[]>> entrySet = httpServletRequest.getParameterMap().entrySet();
 
-            for (Object anEntrySet : entrySet) {
-                Map.Entry header = (Map.Entry) anEntrySet;
-                String key = (String) header.getKey();
-                String value = ((String[]) header.getValue())[0];
+            for (Map.Entry<String, String[]> header : entrySet) {
+                String key = header.getKey();
+                String value = header.getValue()[0];
 
                 if ("user".equals(key)) {
                     user = value;
@@ -361,12 +354,14 @@ public class HTTPProxy extends HttpServlet {
      * @param httpServletRequest  The {@link HttpServletRequest} object passed in by the servlet engine representing the client request to be proxied
      * @param httpServletResponse The {@link HttpServletResponse} object by which we can send a proxied response to the client
      */
+    @Override
     public void doPost(HttpServletRequest httpServletRequest,
                        HttpServletResponse httpServletResponse) throws IOException, ServletException {
         try {
 
             URL url = null;
-            String user = null, password = null;
+            String user = null;
+            String password = null;
             //Parse the queryString to not read the request body calling getParameter from httpServletRequest
             // so the method can simply forward the request body
             Map<String, String> pars = splitQuery(httpServletRequest.getQueryString());
@@ -405,7 +400,7 @@ public class HTTPProxy extends HttpServlet {
                 // Check if this is a mulitpart (file upload) POST
                 // //////////////////////////////////////////////////
 
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
+                if (JakartaServletFileUpload.isMultipartContent(httpServletRequest)) {
                     this.handleMultipart(postMethodProxyRequest, httpServletRequest);
                 } else {
                     this.handleStandard(postMethodProxyRequest, httpServletRequest);
@@ -436,13 +431,15 @@ public class HTTPProxy extends HttpServlet {
      * @param httpServletRequest  The {@link HttpServletRequest} object passed in by the servlet engine representing the client request to be proxied
      * @param httpServletResponse The {@link HttpServletResponse} object by which we can send a proxied response to the client
      */
+    @Override
     public void doPut(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
             throws IOException, ServletException {
 
         try {
 
             URL url = null;
-            String user = null, password = null;
+            String user = null;
+            String password = null;
             //Parse the queryString to not read the request body calling getParameter from httpServletRequest
             // so the method can simply forward the request body
             Map<String, String> pars = splitQuery(httpServletRequest.getQueryString());
@@ -479,7 +476,7 @@ public class HTTPProxy extends HttpServlet {
                 // Check if this is a mulitpart (file upload) PUT
                 // //////////////////////////////////////////////////
 
-                if (ServletFileUpload.isMultipartContent(httpServletRequest)) {
+                if (JakartaServletFileUpload.isMultipartContent(httpServletRequest)) {
                     this.handleMultipart(putMethodProxyRequest, httpServletRequest);
                 } else {
                     this.handleStandard(putMethodProxyRequest, httpServletRequest);
@@ -508,12 +505,14 @@ public class HTTPProxy extends HttpServlet {
      * @param httpServletRequest  The {@link HttpServletRequest} object passed in by the servlet engine representing the client request to be proxied
      * @param httpServletResponse The {@link HttpServletResponse} object by which we can send a proxied response to the client
      */
+    @Override
     public void doDelete(HttpServletRequest httpServletRequest,
                          HttpServletResponse httpServletResponse) throws IOException, ServletException {
 
         try {
             URL url = null;
-            String user = null, password = null;
+            String user = null;
+            String password = null;
 
             //Parse the queryString to not read the request body calling getParameter from httpServletRequest
             Map<String, String> pars = splitQuery(httpServletRequest.getQueryString());
@@ -564,32 +563,29 @@ public class HTTPProxy extends HttpServlet {
     }
 
     /**
-     * Sets up the given {@link PostMethod} to send the same multipart POST data as was sent in the given {@link HttpServletRequest}
+     * Sets up the given {@link HttpUriRequestBase} to send the same multipart POST data as was sent in the given {@link HttpServletRequest}
      *
-     * @param postMethodProxyRequest The {@link PostMethod} that we are configuring to send a multipart POST request
-     * @param httpServletRequest     The {@link HttpServletRequest} that contains the mutlipart POST data to be sent via the {@link PostMethod}
+     * @param methodProxyRequest The {@link HttpUriRequestBase} that we are configuring to send a multipart POST request
+     * @param httpServletRequest     The {@link HttpServletRequest} that contains the mutlipart POST data to be sent via the {@link HttpUriRequestBase}
+     * @throws IOException
      */
-    private void handleMultipart(HttpRequestBase methodProxyRequest,
-                                 HttpServletRequest httpServletRequest) throws ServletException {
+    private void handleMultipart(HttpUriRequestBase methodProxyRequest,
+                                 HttpServletRequest httpServletRequest) throws ServletException, IOException {
 
         // ////////////////////////////////////////////
         // Create a factory for disk-based file items
         // ////////////////////////////////////////////
 
-        DiskFileItemFactory diskFileItemFactory = new DiskFileItemFactory();
-
-        // /////////////////////////////
-        // Set factory constraints
-        // /////////////////////////////
-
-        diskFileItemFactory.setSizeThreshold(this.getMaxFileUploadSize());
-        diskFileItemFactory.setRepository(Utils.DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY);
+        DiskFileItemFactory diskFileItemFactory = DiskFileItemFactory.builder()
+                .setBufferSize(this.getMaxFileUploadSize())
+                .setPath(Utils.DEFAULT_FILE_UPLOAD_TEMP_DIRECTORY.toPath())
+                .get();
 
         // //////////////////////////////////
         // Create a new file upload handler
         // //////////////////////////////////
 
-        ServletFileUpload servletFileUpload = new ServletFileUpload(diskFileItemFactory);
+        JakartaServletFileUpload servletFileUpload = new JakartaServletFileUpload(diskFileItemFactory);
 
         // //////////////////////////
         // Parse the request
@@ -601,7 +597,7 @@ public class HTTPProxy extends HttpServlet {
             // Get the multipart items as a list
             // /////////////////////////////////////
 
-            List<FileItem> listFileItems = (List<FileItem>) servletFileUpload
+            List<FileItem> listFileItems = servletFileUpload
                     .parseRequest(httpServletRequest);
 
             // /////////////////////////////////////////
@@ -626,10 +622,10 @@ public class HTTPProxy extends HttpServlet {
 
             HttpEntity entity = multipartEntityBuilder.build();
 
-            if (methodProxyRequest instanceof HttpPost) {
-                ((HttpPost) methodProxyRequest).setEntity(entity);
-            } else if (methodProxyRequest instanceof HttpPut) {
-                ((HttpPut) methodProxyRequest).setEntity(entity);
+            if (methodProxyRequest instanceof HttpPost httpPost) {
+                httpPost.setEntity(entity);
+            } else if (methodProxyRequest instanceof HttpPut httpPut) {
+                httpPut.setEntity(entity);
             }
 
             // ////////////////////////////////////////////////////////////////////////
@@ -643,7 +639,10 @@ public class HTTPProxy extends HttpServlet {
             // content-type string to reflect the new chunk boundary string
             // ////////////////////////////////////////////////////////////////////////
 
-            methodProxyRequest.setHeader(entity.getContentType());
+            String contentType = entity.getContentType();
+            if (contentType != null) {
+                methodProxyRequest.setHeader("Content-Type", contentType);
+            }
 
         } catch (FileUploadException fileUploadException) {
             throw new ServletException(fileUploadException);
@@ -657,18 +656,17 @@ public class HTTPProxy extends HttpServlet {
      * @param httpServletRequest     The {@link HttpServletRequest} that contains the POST data to be sent via the {@link PostMethod}
      * @throws IOException
      */
-    private void handleStandard(HttpRequestBase methodProxyRequest,
+    private void handleStandard(HttpUriRequestBase methodProxyRequest,
                                 HttpServletRequest httpServletRequest) throws IOException {
-        try {
+        String incomingCT = httpServletRequest.getContentType();
+        ContentType contentType = incomingCT != null
+                ? ContentType.parse(incomingCT)
+                : ContentType.DEFAULT_BINARY;
 
-            if (methodProxyRequest instanceof HttpPost) {
-                ((HttpPost) methodProxyRequest).setEntity(new InputStreamEntity(httpServletRequest.getInputStream()));
-            } else if (methodProxyRequest instanceof HttpPut) {
-                ((HttpPut) methodProxyRequest).setEntity(new InputStreamEntity(httpServletRequest.getInputStream()));
-            }
-
-        } catch (IOException e) {
-            throw new IOException(e);
+        if (methodProxyRequest instanceof HttpPost httpPost) {
+            httpPost.setEntity(new InputStreamEntity(httpServletRequest.getInputStream(), contentType));
+        } else if (methodProxyRequest instanceof HttpPut httpPut) {
+            httpPut.setEntity(new InputStreamEntity(httpServletRequest.getInputStream(), contentType));
         }
     }
 
@@ -678,94 +676,87 @@ public class HTTPProxy extends HttpServlet {
      * @param httpMethodProxyRequest An object representing the proxy request to be made
      * @param httpServletResponse    An object by which we can send the proxied response back to the client
      * @param digest
-     * @throws ServletException Can be thrown to indicate that another error has occurred
      */
-    private void executeProxyRequest(HttpRequestBase httpMethodProxyRequest,
+    private void executeProxyRequest(HttpUriRequestBase httpMethodProxyRequest,
                                      HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse,
-                                     String user, String password) throws ServletException {
+                                     String user, String password) {
 
         if (user != null && password != null) {
-            Credentials credentials = new UsernamePasswordCredentials(user, password);
+            Credentials credentials = new UsernamePasswordCredentials(user, password.toCharArray());
             credsProvider = new BasicCredentialsProvider();
-            credsProvider.setCredentials(AuthScope.ANY, credentials);
+            credsProvider.setCredentials(new AuthScope(null, -1), credentials);
             clientBuilder.setDefaultCredentialsProvider(credsProvider);
             httpClient = null;
             httpClient = createHttpClient();
         }
 
-        InputStream inputStreamServerResponse = null;
-
         try {
+            httpClient.execute(httpMethodProxyRequest, response -> {
 
-            // //////////////////////////
-            // Execute the request
-            // //////////////////////////
+                onRemoteResponse(httpMethodProxyRequest);
 
-            HttpResponse response = httpClient.execute(httpMethodProxyRequest);
+                // ////////////////////////////////////////////////////////////////////////////////
+                // Check if the proxy response is a redirect
+                // The following code is adapted from
+                // org.tigris.noodle.filters.CheckForRedirect
+                // Hooray for open source software
+                // ////////////////////////////////////////////////////////////////////////////////
 
-            onRemoteResponse(httpMethodProxyRequest);
+                int statusCode = getStatusCode(response);
+                if ((statusCode >= HttpServletResponse.SC_MULTIPLE_CHOICES /* 300 */
+                        && statusCode <= HttpServletResponse.SC_SEE_OTHER /* 303 */)
+                        || statusCode == HttpServletResponse.SC_TEMPORARY_REDIRECT /* 307 */
+                        || statusCode == 308 /* Permanent Redirect (no servlet-api constant) */) {
 
-            // ////////////////////////////////////////////////////////////////////////////////
-            // Check if the proxy response is a redirect
-            // The following code is adapted from
-            // org.tigris.noodle.filters.CheckForRedirect
-            // Hooray for open source software
-            // ////////////////////////////////////////////////////////////////////////////////
+                    String stringStatusCode = Integer.toString(statusCode);
+                    var locationHeader = response.getFirstHeader(Utils.LOCATION_HEADER);
+                    String stringLocation = locationHeader != null ? locationHeader.getValue() : null;
 
-            if (getStatusCode(response) >= HttpServletResponse.SC_MULTIPLE_CHOICES /* 300 */
-                    && getStatusCode(response) < HttpServletResponse.SC_NOT_MODIFIED /* 304 */) {
+                    if (stringLocation == null) {
+                        throw new IOException("Received status code: " + stringStatusCode
+                                + " but no " + Utils.LOCATION_HEADER
+                                + " header was found in the response");
+                    }
 
-                String stringStatusCode = Integer.toString(getStatusCode(response));
-                String stringLocation = httpMethodProxyRequest.getFirstHeader(
-                        Utils.LOCATION_HEADER).getValue();
+                    // /////////////////////////////////////////////
+                    // Modify the redirect to go to this proxy
+                    // servlet rather that the proxied host
+                    // /////////////////////////////////////////////
 
-                if (stringLocation == null) {
-                    throw new ServletException("Received status code: " + stringStatusCode
-                            + " but no " + Utils.LOCATION_HEADER
-                            + " header was found in the response");
+                    String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, StandardCharsets.UTF_8);
+                    httpServletResponse.sendRedirect(redirectURL);
+                    LOGGER.info("redirected to: {}", redirectURL);
+                    return null;
+
+                } else if (statusCode == HttpServletResponse.SC_NOT_MODIFIED) {
+
+                    // ///////////////////////////////////////////////////////////////
+                    // 304 needs special handling. See:
+                    // http://www.ics.uci.edu/pub/ietf/http/rfc1945.html#Code304
+                    // We get a 304 whenever passed an 'If-Modified-Since'
+                    // header and the data on disk has not changed; server
+                    // responds w/ a 304 saying I'm not going to send the
+                    // body because the file has not changed.
+                    // ///////////////////////////////////////////////////////////////
+
+                    httpServletResponse.setIntHeader(Utils.CONTENT_LENGTH_HEADER_NAME, 0);
+                    httpServletResponse.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+                    return null;
                 }
 
                 // /////////////////////////////////////////////
-                // Modify the redirect to go to this proxy
-                // servlet rather that the proxied host
+                // Pass the response code back to the client
                 // /////////////////////////////////////////////
 
-                String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, "UTF-8");
-                httpServletResponse.sendRedirect(redirectURL);
-                LOGGER.info("redirected to:" + redirectURL);
-                return;
+                httpServletResponse.setStatus(statusCode);
 
-            } else if (getStatusCode(response) == HttpServletResponse.SC_NOT_MODIFIED) {
+                // /////////////////////////////////////////////
+                // Pass response headers back to the client
+                // /////////////////////////////////////////////
 
-                // ///////////////////////////////////////////////////////////////
-                // 304 needs special handling. See:
-                // http://www.ics.uci.edu/pub/ietf/http/rfc1945.html#Code304
-                // We get a 304 whenever passed an 'If-Modified-Since'
-                // header and the data on disk has not changed; server
-                // responds w/ a 304 saying I'm not going to send the
-                // body because the file has not changed.
-                // ///////////////////////////////////////////////////////////////
-
-                httpServletResponse.setIntHeader(Utils.CONTENT_LENGTH_HEADER_NAME, 0);
-                httpServletResponse.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
-
-                return;
-            }
-
-            // /////////////////////////////////////////////
-            // Pass the response code back to the client
-            // /////////////////////////////////////////////
-
-            httpServletResponse.setStatus(getStatusCode(response));
-
-            // /////////////////////////////////////////////
-            // Pass response headers back to the client
-            // /////////////////////////////////////////////
-
-            if (response.getAllHeaders() != null) {
-                Header[] headerArrayResponse = response.getAllHeaders();
-
-                for (Header header : headerArrayResponse) {
+                var headerIt = response.headerIterator();
+                while (headerIt.hasNext()) {
+                    var header = headerIt.next();
 
                     // /////////////////////////
                     // Skip GZIP Responses
@@ -782,43 +773,33 @@ public class HTTPProxy extends HttpServlet {
                     else
                         httpServletResponse.setHeader(header.getName(), header.getValue());
                 }
-            }
 
-            // ///////////////////////////////////
-            // Send the content to the client
-            // ///////////////////////////////////
+                // ///////////////////////////////////
+                // Send the content to the client
+                // ///////////////////////////////////
 
-            inputStreamServerResponse = response.getEntity().getContent();
+                try (InputStream inputStreamServerResponse = response.getEntity().getContent()) {
+                    if (inputStreamServerResponse != null) {
+                        byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
 
-            if (inputStreamServerResponse != null) {
-                byte[] b = new byte[proxyConfig.getDefaultStreamByteSize()];
-
-                int read = 0;
-                ServletOutputStream out = httpServletResponse.getOutputStream();
-                while ((read = inputStreamServerResponse.read(b)) > 0) {
-                    out.write(b, 0, read);
+                        int read;
+                        ServletOutputStream out = httpServletResponse.getOutputStream();
+                        while ((read = inputStreamServerResponse.read(b)) > 0) {
+                            out.write(b, 0, read);
+                        }
+                    }
                 }
-            }
 
+                return null;
+            });
         } catch (Exception e) {
             LOGGER.error("Error executing HTTP method", e);
-        } finally {
-            try {
-                if (inputStreamServerResponse != null)
-                    inputStreamServerResponse.close();
-            } catch (IOException e) {
-                LOGGER.error("Error closing request input stream", e);
-                throw new ServletException(e.getMessage());
-            }
-
-            httpMethodProxyRequest.releaseConnection();
         }
     }
 
-    int getStatusCode(HttpResponse response) {
+    int getStatusCode(ClassicHttpResponse response) {
         if (response != null) {
-            StatusLine statusLine = response.getStatusLine();
-            return statusLine.getStatusCode();
+            return response.getCode();
         } else {
             return -1;
         }
@@ -831,9 +812,8 @@ public class HTTPProxy extends HttpServlet {
      * @param httpMethodProxyRequest The request that we are about to send to the proxy host
      * @return ProxyInfo
      */
-    @SuppressWarnings("rawtypes")
     private ProxyInfo setProxyRequestHeaders(URL url, HttpServletRequest httpServletRequest,
-                                             HttpRequestBase httpMethodProxyRequest) {
+                                             HttpUriRequestBase httpMethodProxyRequest) {
 
         final String proxyHost = url.getHost();
         final int proxyPort = url.getPort();
@@ -845,8 +825,6 @@ public class HTTPProxy extends HttpServlet {
         // names sent by the client.
         // ////////////////////////////////////////
 
-        Enumeration enumerationOfHeaderNames = httpServletRequest.getHeaderNames();
-
         // ////////////////////////////////////////
         // Load header whitelist/blacklist for
         // filtering forwarded request headers.
@@ -855,8 +833,7 @@ public class HTTPProxy extends HttpServlet {
         Set<String> headerWhitelist = proxyConfig.getRequestHeaderWhitelist();
         Set<String> headerBlacklist = proxyConfig.getRequestHeaderBlacklist();
 
-        while (enumerationOfHeaderNames.hasMoreElements()) {
-            String stringHeaderName = (String) enumerationOfHeaderNames.nextElement();
+        for (String stringHeaderName : Collections.list(httpServletRequest.getHeaderNames())) {
 
             if (stringHeaderName.equalsIgnoreCase(Utils.CONTENT_LENGTH_HEADER_NAME))
                 continue;
@@ -890,10 +867,7 @@ public class HTTPProxy extends HttpServlet {
             // Thus, we get an Enumeration of the header values sent by the client
             // ////////////////////////////////////////////////////////////////////////
 
-            Enumeration enumerationOfHeaderValues = httpServletRequest.getHeaders(stringHeaderName);
-
-            while (enumerationOfHeaderValues.hasMoreElements()) {
-                String stringHeaderValue = (String) enumerationOfHeaderValues.nextElement();
+            for (String stringHeaderValue : Collections.list(httpServletRequest.getHeaders(stringHeaderName))) {
 
                 // ////////////////////////////////////////////////////////////////
                 // In case the proxy host is running multiple virtual servers,
@@ -930,13 +904,15 @@ public class HTTPProxy extends HttpServlet {
         return proxyInfo;
     }
 
-    private Map<String, String> splitQuery(String query) throws UnsupportedEncodingException {
-        Map<String, String> query_pairs = new LinkedHashMap<String, String>();
+    private Map<String, String> splitQuery(String query) {
+        Map<String, String> query_pairs = new LinkedHashMap<>();
 
-        String[] pairs = query.split("&");
-        for (String pair : pairs) {
+        for (String pair : query.split("&")) {
             int idx = pair.indexOf("=");
-            query_pairs.put(URLDecoder.decode(pair.substring(0, idx), "UTF-8"), URLDecoder.decode(pair.substring(idx + 1), "UTF-8"));
+            query_pairs.put(
+                URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8),
+                URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8)
+            );
         }
         return query_pairs;
     }
@@ -945,13 +921,13 @@ public class HTTPProxy extends HttpServlet {
      * @return int the maximum file upload size.
      */
     public int getMaxFileUploadSize() {
-        return maxFileUploadSize;
+        return Utils.DEFAULT_MAX_FILE_UPLOAD_SIZE;
     }
 
     /**
      * @return the client
      */
-    public HttpClient getHttpClient() {
+    public CloseableHttpClient getHttpClient() {
         return httpClient;
     }
 
@@ -960,7 +936,7 @@ public class HTTPProxy extends HttpServlet {
      *
      * @param httpClient the client to set
      */
-    public void setHttpClient(HttpClient httpClient) {
+    public void setHttpClient(CloseableHttpClient httpClient) {
         this.httpClient = httpClient;
     }
 }
