@@ -349,6 +349,29 @@
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>owasp</id>
+			<activation>
+				<property>
+					<name>owasp</name>
+				</property>
+			</activation>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.owasp</groupId>
+						<artifactId>dependency-check-maven</artifactId>
+						<executions>
+							<execution>
+								<goals>
+									<goal>check</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
 	</profiles>
 
 	<repositories>
