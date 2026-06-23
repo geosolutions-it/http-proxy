@@ -155,7 +155,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<log4j-version>2.19.0</log4j-version>
+		<log4j-version>2.25.4</log4j-version>
 		<http-client-version>4.5.13</http-client-version>
 	</properties>
 
