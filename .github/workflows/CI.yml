@@ -39,7 +39,7 @@ jobs:
         cache: maven
     - name: OWASP Dependency Check
       continue-on-error: true
-      run: mvn -B verify -Powasp -DskipTests -DnvdApiKey=${{ secrets.NVD_API_KEY }}
+      run: mvn -B verify -Powasp -DskipTests -DnvdApiKey=${{ secrets.NVD_API_KEY }} -DconnectionTimeout=6000 -DreadTimeout=6000
     - name: Upload report
       if: always()
       uses: actions/upload-artifact@v4
