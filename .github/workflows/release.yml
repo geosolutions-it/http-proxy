@@ -64,7 +64,10 @@ jobs:
         server-password: MAVEN_PASSWORD
 
     - name: Publish package
-      run: mvn clean install deploy
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -H maven.geo-solutions.it >> ~/.ssh/known_hosts
+        mvn clean install deploy
       env:
         MAVEN_USERNAME: ${{ secrets.GS_MAVEN_USERNAME }}
         MAVEN_PASSWORD: ${{ secrets.GS_MAVEN_PASSWORD }}
