@@ -42,7 +42,7 @@ The release will be automatically published on GitHub. Packages will be automati
 
 ## Relevant Workflows
 
-- [CI](../../actions/workflows/CI.yml): Automatically does tests for pull request or commits on `master`. For commits on the main repo (e.g. when PR are merged on `master` or stable branches, the workflow publish also the artifacts on [GeoSolutions Maven Repository](https://maven.geo-solutions.it)
+- [CI](../../actions/workflows/CI.yml): Automatically does tests for pull request or commits on `master`. For commits on the main repo (e.g. when PR are merged on `master` or stable branches, the workflow publish also the artifacts on [GeoSolutions Maven Repository](https://maven.geo-solutions.it).
 - **[Cut release branch](../../actions/workflows/cut-major-branch.yml)**: (`cut-major-branch.yml`): Manually triggered workflow that allows to create a stable branch named `<current-version>.x` and create a pull request for updating `master` branch `-SNAPSHOT` version with the new data. 
 - **[Release](../../actions/workflows/release.yml)**: (`cut-major-branch.yml`): Manually triggered workflow to apply to the stable branch that fixes the maven modules versions, tags the commit, build and deploy artifacts, restores snapshot versions and publish a Github release on the tagged commit.
    
