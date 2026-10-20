@@ -30,6 +30,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.HttpClientResponseHandler;
+import org.apache.hc.core5.http.protocol.HttpContext;
 import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.http.message.BasicHeader;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URL;
+import java.net.URI;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,7 +51,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -89,14 +93,15 @@ class HttpProxyTest {
 
         // mock redirect response
         final HttpGet mockGetMethod = mock(HttpGet.class);
+        when(mockGetMethod.getUri()).thenReturn(new URI("http://sample.com/"));
         CloseableHttpResponse response = mock(CloseableHttpResponse.class);
         when(response.getCode()).thenReturn(302);
 
         mockHttpClient = mock(CloseableHttpClient.class);
         doAnswer(invocation -> {
-            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            HttpClientResponseHandler<?> handler = invocation.getArgument(2);
             return handler.handleResponse(response);
-        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
         fakeLocation = "http://newURL.com/";
 
         when(response.getFirstHeader(Utils.LOCATION_HEADER))
@@ -118,20 +123,51 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURL()).thenReturn(
-                new StringBuffer("http://proxy.com/http-proxy/proxy"));
+        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
         // mock http response object
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
         when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
 
         proxy.doGet(getRequest, getResponse);
-        verify(getResponse).sendRedirect(
-                "http://proxy.com/http-proxy/proxy?url="
-                + URLEncoder.encode(fakeLocation, "UTF-8"));
+        // path-relative, so the browser keeps the scheme and host it used
+        verify(getResponse).setStatus(302);
+        verify(getResponse).setHeader(Utils.LOCATION_HEADER,
+                "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
         final byte[] data = servletOutputStream.baos.toByteArray();
         assertNotNull(data);
         assertEquals(0, data.length);
+    }
+
+    /** A remote host that does not answer in time is reported as 504, not as an empty 200. */
+    @Test
+    void testRemoteTimeoutIsAGatewayTimeout() throws Exception {
+        final HttpGet mockGetMethod = mock(HttpGet.class);
+        when(mockGetMethod.getUri()).thenReturn(new URI("http://sample.com/"));
+        mockHttpClient = mock(CloseableHttpClient.class);
+        doThrow(new java.net.SocketTimeoutException("Read timed out"))
+                .when(mockHttpClient).execute(eq(mockGetMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
+
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public HttpGet getGetMethod(URL url) {
+                return mockGetMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getParameterMap()).thenReturn(parameters);
+        when(getRequest.getHeaderNames()).thenReturn(Collections.enumeration(headers));
+        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+
+        proxy.doGet(getRequest, getResponse);
+
+        verify(getResponse).sendError(eq(504), anyString());
     }
 
     @Test
@@ -139,14 +175,15 @@ class HttpProxyTest {
 
         // 307 Temporary Redirect must be handled as a redirect as well
         final HttpGet mockGetMethod = mock(HttpGet.class);
+        when(mockGetMethod.getUri()).thenReturn(new URI("http://sample.com/"));
         CloseableHttpResponse response = mock(CloseableHttpResponse.class);
         when(response.getCode()).thenReturn(307);
 
         mockHttpClient = mock(CloseableHttpClient.class);
         doAnswer(invocation -> {
-            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            HttpClientResponseHandler<?> handler = invocation.getArgument(2);
             return handler.handleResponse(response);
-        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpClientResponseHandler.class));
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
         fakeLocation = "http://newURL.com/";
 
         // the Location header is read from the response, not the request
@@ -168,16 +205,16 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURL()).thenReturn(
-                new StringBuffer("http://proxy.com/http-proxy/proxy"));
+        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
         when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
 
         proxy.doGet(getRequest, getResponse);
-        verify(getResponse).sendRedirect(
-                "http://proxy.com/http-proxy/proxy?url="
-                + URLEncoder.encode(fakeLocation, "UTF-8"));
+        // 307 must reach the browser as 307, so that a POST is repeated as a POST
+        verify(getResponse).setStatus(307);
+        verify(getResponse).setHeader(Utils.LOCATION_HEADER,
+                "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
     }
 
     @Test
@@ -193,9 +230,9 @@ class HttpProxyTest {
         when(response.headerIterator()).thenReturn(Collections.<org.apache.hc.core5.http.Header>emptyList().iterator());
         mockHttpClient = mock(CloseableHttpClient.class);
         doAnswer(invocation -> {
-            HttpClientResponseHandler<?> handler = invocation.getArgument(1);
+            HttpClientResponseHandler<?> handler = invocation.getArgument(2);
             return handler.handleResponse(response);
-        }).when(mockHttpClient).execute(eq(mockPostMethod), any(HttpClientResponseHandler.class));
+        }).when(mockHttpClient).execute(eq(mockPostMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
 
         proxy = new HTTPProxy() {
             private static final long serialVersionUID = 1L;

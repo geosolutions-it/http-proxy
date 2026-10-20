@@ -22,6 +22,7 @@ package it.geosolutions.httpproxy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.core5.http.ClassicHttpResponse;
 
 import java.io.IOException;
 import java.net.URL;
@@ -48,6 +49,19 @@ public interface ProxyCallback {
      * @throws IOException
      */
     void onRemoteResponse(HttpUriRequestBase method) throws IOException;
+
+    /**
+     * Second to be called, with the response received from the remote server, before any of it is
+     * sent to the client. Throwing an {@link HttpErrorException} refuses the response. The default
+     * calls {@link #onRemoteResponse(HttpUriRequestBase)}.
+     *
+     * @param method the request sent to the remote server
+     * @param response the response received from it
+     * @throws IOException
+     */
+    default void onRemoteResponse(HttpUriRequestBase method, ClassicHttpResponse response) throws IOException {
+        onRemoteResponse(method);
+    }
 
     /**
      * Called when the request is fully proxied, can be used for cleanup actions
