@@ -31,8 +31,12 @@ import org.apache.commons.fileupload2.core.FileItem;
 import org.apache.commons.fileupload2.core.FileUploadException;
 import org.apache.commons.fileupload2.jakarta.servlet6.JakartaServletFileUpload;
 import org.apache.hc.client5.http.HttpRoute;
+import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.auth.Credentials;
+import org.apache.hc.client5.http.auth.CredentialsProvider;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpDelete;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
@@ -41,10 +45,15 @@ import org.apache.hc.client5.http.classic.methods.HttpPut;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.entity.mime.ContentBody;
 import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.auth.BasicAuthCache;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.auth.BasicScheme;
+import org.apache.hc.client5.http.impl.auth.SystemDefaultCredentialsProvider;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.client5.http.routing.HttpRoutePlanner;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.ContentType;
@@ -53,18 +62,24 @@ import org.apache.hc.core5.http.HttpException;
 import org.apache.hc.core5.http.HttpHost;
 import org.apache.hc.core5.http.io.entity.InputStreamEntity;
 import org.apache.hc.core5.http.protocol.HttpContext;
+import org.apache.hc.core5.util.Timeout;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -99,6 +114,15 @@ public class HTTPProxy extends HttpServlet {
      */
     private CloseableHttpClient httpClient;
 
+    private HttpHost outboundHttpProxy;
+    private HttpHost outboundHttpsProxy;
+
+    /** The destination policy applied to every connection the client opens. */
+    private PrivateAddressDnsResolver destinationPolicy;
+
+    /** Whether requests may go through the JVM outbound proxy; read once, like the policy. */
+    private boolean allowForwardProxy;
+
 
     /**
      * The proxy configuration.
@@ -109,8 +133,6 @@ public class HTTPProxy extends HttpServlet {
      * The proxy collbacks to provide checks.
      */
     private List<ProxyCallback> callbacks;
-
-    private BasicCredentialsProvider credsProvider = null;
 
     /**
      * Initialize the <code>ProxyServlet</code>
@@ -126,12 +148,31 @@ public class HTTPProxy extends HttpServlet {
 
         proxyConfig = new ProxyConfig(getServletContext(), proxyPropPath);
 
-        connectionManager = new PoolingHttpClientConnectionManager();
+        // Requests sent through the outbound proxy connect to the proxy itself, which is often on
+        // a private network: trust the configured proxy as a connection target.
+        allowForwardProxy = proxyConfig.isAllowForwardProxy();
+        Set<String> trustedProxies = new HashSet<>();
+        if (allowForwardProxy) {
+            addProxy(trustedProxies, getHost("http.proxyHost", "http.proxyPort"));
+            addProxy(trustedProxies, getHost("https.proxyHost", "https.proxyPort"));
+        }
+        destinationPolicy = new PrivateAddressDnsResolver(
+                proxyConfig, SystemDefaultDnsResolver.INSTANCE, trustedProxies);
 
-        connectionManager.setMaxTotal(6);
-        connectionManager.setDefaultMaxPerRoute(6);
+        // timeout, connection_timeout, max_total_connections and default_max_connections_per_host
+        // from proxy.properties.
+        connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setDnsResolver(destinationPolicy)
+                .setDefaultConnectionConfig(ConnectionConfig.custom()
+                        .setConnectTimeout(Timeout.ofMilliseconds(proxyConfig.getConnectionTimeout()))
+                        .setSocketTimeout(Timeout.ofMilliseconds(proxyConfig.getSoTimeout()))
+                        .build())
+                .setMaxConnTotal(proxyConfig.getMaxTotalConnections())
+                .setMaxConnPerRoute(proxyConfig.getDefaultMaxConnectionsPerHost())
+                .build();
 
         httpClient = createHttpClient();
+        logDestinationPolicy();
 
         // //////////////////////////////////////////
         // Setup the callbacks (in the future this
@@ -154,14 +195,23 @@ public class HTTPProxy extends HttpServlet {
         if (httpClient != null)
             return httpClient;
 
-        final HttpHost httpHost = getHost("http.proxyHost", "http.proxyPort");
-        LOGGER.debug("HTTP proxy host: {}", httpHost);
-        final HttpHost httpsHost = getHost("https.proxyHost", "https.proxyPort");
-        LOGGER.debug("HTTPS proxy host: {}", httpsHost);
+        outboundHttpProxy = getHost("http.proxyHost", "http.proxyPort");
+        LOGGER.debug("HTTP proxy host: {}", outboundHttpProxy);
+        outboundHttpsProxy = getHost("https.proxyHost", "https.proxyPort");
+        LOGGER.debug("HTTPS proxy host: {}", outboundHttpsProxy);
 
-        HttpRoutePlanner routePlanner = getRoutePlanner(httpHost, httpsHost);
+        HttpRoutePlanner routePlanner = getRoutePlanner(outboundHttpProxy, outboundHttpsProxy);
 
         clientBuilder.setRoutePlanner(routePlanner);
+        if (proxyConfig != null) {
+            clientBuilder.setDefaultRequestConfig(RequestConfig.custom()
+                    .setResponseTimeout(Timeout.ofMilliseconds(proxyConfig.getSoTimeout()))
+                    .build());
+        }
+        clientBuilder.disableRedirectHandling();
+        // One client serves every user: a shared cookie store would replay a cookie set by one
+        // user's upstream response on every other user's requests to that host.
+        clientBuilder.disableCookieManagement();
         clientBuilder.useSystemProperties();
         clientBuilder.setConnectionManager(connectionManager);
 
@@ -179,6 +229,27 @@ public class HTTPProxy extends HttpServlet {
             httpHost = new HttpHost(proxyHost, proxyPort);
         }
         return httpHost;
+    }
+
+    private static void addProxy(Set<String> proxies, HttpHost proxy) {
+        if (proxy != null) {
+            proxies.add(proxy.getHostName() + ":" + proxy.getPort());
+        }
+    }
+
+    private void logDestinationPolicy() {
+        LOGGER.warn(destinationPolicy.describe());
+        if (outboundHttpProxy == null && outboundHttpsProxy == null) {
+            return;
+        }
+        if (allowForwardProxy) {
+            LOGGER.warn("Requests to hosts outside http.nonProxyHosts go through the outbound proxy"
+                    + " (http: {}, https: {}): a destination is checked here only when its name"
+                    + " resolves locally, the outbound proxy's own rules apply to the rest",
+                    outboundHttpProxy, outboundHttpsProxy);
+        } else {
+            LOGGER.warn("allowForwardProxy is false: requests to hosts outside http.nonProxyHosts are refused");
+        }
     }
 
     /**
@@ -258,6 +329,28 @@ public class HTTPProxy extends HttpServlet {
      */
     void onInit(HttpServletRequest request, HttpServletResponse response, URL url)
             throws IOException {
+        // A browser navigation has no legitimate reason to render an upstream document here.
+        // Browsers send Fetch Metadata only over HTTPS and to localhost, so this backs up the
+        // sandbox CSP set on every proxied response rather than replacing it.
+        if ("navigate".equalsIgnoreCase(request.getHeader("Sec-Fetch-Mode"))) {
+            throw new HttpErrorException(403, "Browser navigation to proxy is not allowed");
+        }
+        // A forwarding proxy resolves the requested target on its own side, so the connection
+        // check sees only the proxy. Check the target here as well when it resolves locally.
+        boolean forwarded = !isNonProxyHost(url.getHost())
+                && (("http".equalsIgnoreCase(url.getProtocol()) && outboundHttpProxy != null)
+                || ("https".equalsIgnoreCase(url.getProtocol()) && outboundHttpsProxy != null));
+        if (forwarded) {
+            if (!allowForwardProxy) {
+                throw new HttpErrorException(403, "Requests through the outbound proxy are disabled");
+            }
+            try {
+                destinationPolicy.checkForwardedDestination(url.getHost(), url.getPort());
+            } catch (PrivateAddressDnsResolver.BlockedDestinationException blocked) {
+                LOGGER.warn(blocked.getMessage());
+                throw new HttpErrorException(403, "Private destination is not allowed");
+            }
+        }
         for (ProxyCallback callback : callbacks) {
             callback.onRequest(request, response, url);
         }
@@ -267,9 +360,9 @@ public class HTTPProxy extends HttpServlet {
      * @param method
      * @throws IOException
      */
-    void onRemoteResponse(HttpUriRequestBase method) throws IOException {
+    void onRemoteResponse(HttpUriRequestBase method, ClassicHttpResponse response) throws IOException {
         for (ProxyCallback callback : callbacks) {
-            callback.onRemoteResponse(method);
+            callback.onRemoteResponse(method, response);
         }
     }
 
@@ -681,19 +774,13 @@ public class HTTPProxy extends HttpServlet {
                                      HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse,
                                      String user, String password) {
 
-        if (user != null && password != null) {
-            Credentials credentials = new UsernamePasswordCredentials(user, password.toCharArray());
-            credsProvider = new BasicCredentialsProvider();
-            credsProvider.setCredentials(new AuthScope(null, -1), credentials);
-            clientBuilder.setDefaultCredentialsProvider(credsProvider);
-            httpClient = null;
-            httpClient = createHttpClient();
-        }
+        HttpClientContext context =
+                requestContext(httpMethodProxyRequest, user, password, outboundProxies());
 
         try {
-            httpClient.execute(httpMethodProxyRequest, response -> {
+            httpClient.execute(httpMethodProxyRequest, context, response -> {
 
-                onRemoteResponse(httpMethodProxyRequest);
+                onRemoteResponse(httpMethodProxyRequest, response);
 
                 // ////////////////////////////////////////////////////////////////////////////////
                 // Check if the proxy response is a redirect
@@ -723,8 +810,19 @@ public class HTTPProxy extends HttpServlet {
                     // servlet rather that the proxied host
                     // /////////////////////////////////////////////
 
-                    String redirectURL = httpServletRequest.getRequestURL() + "?url=" + URLEncoder.encode(stringLocation, StandardCharsets.UTF_8);
-                    httpServletResponse.sendRedirect(redirectURL);
+                    String absoluteLocation;
+                    try {
+                        absoluteLocation = httpMethodProxyRequest.getUri().resolve(stringLocation).toString();
+                    } catch (URISyntaxException | IllegalArgumentException invalidLocation) {
+                        throw new IOException("Invalid upstream redirect Location", invalidLocation);
+                    }
+                    // A path-relative Location keeps the scheme and host the browser used, which a
+                    // TLS front end hides from us, and the upstream status keeps 307/308 requests
+                    // from being repeated as GET.
+                    String redirectURL = httpServletRequest.getRequestURI() + "?url="
+                            + URLEncoder.encode(absoluteLocation, StandardCharsets.UTF_8);
+                    httpServletResponse.setStatus(statusCode);
+                    httpServletResponse.setHeader(Utils.LOCATION_HEADER, redirectURL);
                     LOGGER.info("redirected to: {}", redirectURL);
                     return null;
 
@@ -741,6 +839,8 @@ public class HTTPProxy extends HttpServlet {
 
                     httpServletResponse.setIntHeader(Utils.CONTENT_LENGTH_HEADER_NAME, 0);
                     httpServletResponse.setStatus(HttpServletResponse.SC_NOT_MODIFIED);
+                    // The browser reuses its cached copy, so the 304 carries the same policy.
+                    applyContentPolicy(httpServletResponse);
                     return null;
                 }
 
@@ -754,6 +854,9 @@ public class HTTPProxy extends HttpServlet {
                 // Pass response headers back to the client
                 // /////////////////////////////////////////////
 
+                // Headers such as Set-Cookie would act on this application's origin, not on the
+                // remote host that sent them.
+                Set<String> droppedHeaders = proxyConfig.getResponseHeaderBlacklist();
                 var headerIt = response.headerIterator();
                 while (headerIt.hasNext()) {
                     var header = headerIt.next();
@@ -770,9 +873,14 @@ public class HTTPProxy extends HttpServlet {
                         continue;
                     else if (header.getName().equalsIgnoreCase(Utils.HTTP_HEADER_TRANSFER_ENCODING))
                         continue;
+                    else if (droppedHeaders.contains(header.getName().toLowerCase(Locale.ROOT)))
+                        continue;
                     else
                         httpServletResponse.setHeader(header.getName(), header.getValue());
                 }
+
+                // Upstream headers must not relax the policy on documents served by our origin.
+                applyContentPolicy(httpServletResponse);
 
                 // ///////////////////////////////////
                 // Send the content to the client
@@ -793,8 +901,65 @@ public class HTTPProxy extends HttpServlet {
                 return null;
             });
         } catch (Exception e) {
-            LOGGER.error("Error executing HTTP method", e);
+            int status;
+            String message;
+            PrivateAddressDnsResolver.BlockedDestinationException blocked = blockedDestination(e);
+            HttpErrorException refused = causeOf(e, HttpErrorException.class);
+            if (blocked != null) {
+                // An expected outcome of the destination policy, not an error.
+                LOGGER.warn(blocked.getMessage());
+                status = 403;
+                message = "Private destination is not allowed";
+            } else if (refused != null) {
+                // A check on the remote response, such as the content type, refused it.
+                LOGGER.warn(refused.getMessage());
+                status = refused.getCode();
+                message = refused.getMessage();
+            } else if (causeOf(e, InterruptedIOException.class) != null) {
+                LOGGER.error("Timed out waiting for the remote host", e);
+                status = HttpServletResponse.SC_GATEWAY_TIMEOUT;
+                message = "The remote host did not answer in time";
+            } else {
+                LOGGER.error("Error executing HTTP method", e);
+                status = HttpServletResponse.SC_BAD_GATEWAY;
+                message = "Could not get a response from the remote host";
+            }
+            // Without a status the client would receive an empty 200.
+            if (!httpServletResponse.isCommitted()) {
+                try {
+                    httpServletResponse.sendError(status, message);
+                } catch (IOException responseError) {
+                    LOGGER.error("Could not send the proxy error response", responseError);
+                }
+            }
         }
+    }
+
+    /**
+     * Proxied content is served from this application's origin: sandbox it and stop the browser
+     * from guessing a more powerful content type than the one declared.
+     */
+    private static void applyContentPolicy(HttpServletResponse response) {
+        response.setHeader("Content-Security-Policy", "sandbox; default-src 'none'");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+    }
+
+    private static <T extends Throwable> T causeOf(Throwable error, Class<T> type) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (type.isInstance(cause)) {
+                return type.cast(cause);
+            }
+        }
+        return null;
+    }
+
+    private static PrivateAddressDnsResolver.BlockedDestinationException blockedDestination(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof PrivateAddressDnsResolver.BlockedDestinationException blocked) {
+                return blocked;
+            }
+        }
+        return null;
     }
 
     int getStatusCode(ClassicHttpResponse response) {
@@ -802,6 +967,87 @@ public class HTTPProxy extends HttpServlet {
             return response.getCode();
         } else {
             return -1;
+        }
+    }
+
+    /**
+     * Credentials the client uses when a request carries none of its own: the JVM settings
+     * (java.net.Authenticator, http(s).proxyUser and http(s).proxyPassword), which is how an
+     * outbound proxy is usually authenticated.
+     */
+    private static final CredentialsProvider SYSTEM_CREDENTIALS = new SystemDefaultCredentialsProvider();
+
+    /**
+     * Builds the execution context of a single proxied request. Credentials passed with the
+     * request apply to that request only, and only to the origin it targets, so they are never
+     * reused for another user or another host. Any other challenge on the same request, such as
+     * one from the outbound proxy, is still answered from the JVM settings.
+     *
+     * <p>The credentials are sent with the first request instead of after a 401 challenge: the
+     * body of a POST or PUT is streamed from the client and cannot be sent a second time.
+     */
+    static HttpClientContext requestContext(HttpUriRequestBase request, String user, String password) {
+        return requestContext(request, user, password, Collections.emptyList());
+    }
+
+    /**
+     * As {@link #requestContext(HttpUriRequestBase, String, String)}, and when the JVM settings hold
+     * credentials for one of the outbound proxies, they are also sent with the first request to that
+     * proxy: a 407 challenge would otherwise need the streamed POST or PUT body a second time. The
+     * client only uses that entry when the request is routed through the proxy.
+     */
+    static HttpClientContext requestContext(
+            HttpUriRequestBase request, String user, String password, Collection<HttpHost> outboundProxies) {
+        HttpClientContext context = HttpClientContext.create();
+        BasicAuthCache preemptive = new BasicAuthCache();
+        boolean anyPreemptive = false;
+        for (HttpHost proxy : outboundProxies) {
+            Credentials proxyCredentials = SYSTEM_CREDENTIALS.getCredentials(new AuthScope(proxy), context);
+            if (proxyCredentials != null) {
+                BasicScheme proxyScheme = new BasicScheme();
+                proxyScheme.initPreemptive(proxyCredentials);
+                preemptive.put(proxy, proxyScheme);
+                anyPreemptive = true;
+            }
+        }
+        if (user != null && password != null) {
+            HttpHost origin = targetOrigin(request);
+            UsernamePasswordCredentials requestCredentials =
+                    new UsernamePasswordCredentials(user, password.toCharArray());
+            BasicCredentialsProvider forTarget = new BasicCredentialsProvider();
+            forTarget.setCredentials(new AuthScope(origin), requestCredentials);
+            context.setCredentialsProvider((scope, httpContext) -> {
+                Credentials credentials = forTarget.getCredentials(scope, httpContext);
+                return credentials != null ? credentials : SYSTEM_CREDENTIALS.getCredentials(scope, httpContext);
+            });
+
+            BasicScheme basic = new BasicScheme();
+            basic.initPreemptive(requestCredentials);
+            preemptive.put(origin, basic);
+            anyPreemptive = true;
+        }
+        if (anyPreemptive) {
+            context.setAuthCache(preemptive);
+        }
+        return context;
+    }
+
+    /** The configured outbound proxies (http.proxyHost and https.proxyHost), if any. */
+    private List<HttpHost> outboundProxies() {
+        List<HttpHost> proxies = new ArrayList<>(2);
+        if (outboundHttpProxy != null) proxies.add(outboundHttpProxy);
+        if (outboundHttpsProxy != null && !outboundHttpsProxy.equals(outboundHttpProxy)) proxies.add(outboundHttpsProxy);
+        return proxies;
+    }
+
+    private static HttpHost targetOrigin(HttpUriRequestBase request) {
+        try {
+            java.net.URI uri = request.getUri();
+            String scheme = uri.getScheme() == null ? "http" : uri.getScheme().toLowerCase(Locale.ROOT);
+            int port = uri.getPort() != -1 ? uri.getPort() : ("https".equals(scheme) ? 443 : 80);
+            return new HttpHost(scheme, uri.getHost(), port);
+        } catch (java.net.URISyntaxException e) {
+            throw new IllegalArgumentException("Invalid proxy target", e);
         }
     }
 

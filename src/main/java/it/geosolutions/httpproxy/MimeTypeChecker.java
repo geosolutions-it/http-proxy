@@ -22,10 +22,12 @@ package it.geosolutions.httpproxy;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.Header;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -58,30 +60,37 @@ public class MimeTypeChecker implements ProxyCallback {
      *
      * @see it.geosolutions.httpproxy.ProxyCallback#onRemoteResponse(org.apache.commons.httpclient.HttpMethod)
      */
-    public void onRemoteResponse(HttpUriRequestBase method) throws IOException {
-        Set<String> mimeTypes = config.getMimetypeWhitelist();
+    public void onRemoteResponse(HttpUriRequestBase method) {
+        // The check needs the remote response, see onRemoteResponse(method, response).
+    }
 
-        if (mimeTypes != null && !mimeTypes.isEmpty()) {
-            Header header = method.getFirstHeader("Content-type");
-
-
-            if (header != null) {
-                String contentType = header.getValue();
-
-                // //////////////////////////////////
-                // Trim off extraneous information
-                // //////////////////////////////////
-
-                String firstType = contentType.split(";")[0];
-
-                if (!mimeTypes.contains(firstType)) {
-                    throw new HttpErrorException(403, "Content-type " + firstType
-                                                      + " is not among the ones allowed for this proxy");
-                }
-            }
-
-
+    /**
+     * When {@code checkResponseContentType} is true, refuses a remote response whose Content-Type
+     * is not in mimetypeWhitelist, before any of it reaches the client. Types are compared without
+     * parameters, case or surrounding spaces; a response without a Content-Type is not refused.
+     */
+    @Override
+    public void onRemoteResponse(HttpUriRequestBase method, ClassicHttpResponse response) throws IOException {
+        if (!config.isCheckResponseContentType()) {
+            return;
         }
+        Set<String> mimeTypes = config.getMimetypeWhitelist();
+        Header header = response.getFirstHeader("Content-Type");
+        if (mimeTypes == null || mimeTypes.isEmpty() || header == null) {
+            return;
+        }
+
+        String type = mediaType(header.getValue());
+        boolean allowed = mimeTypes.stream().map(MimeTypeChecker::mediaType).anyMatch(type::equals);
+        if (!allowed) {
+            throw new HttpErrorException(403, "Content-type " + type
+                    + " is not among the ones allowed for this proxy");
+        }
+    }
+
+    /** The media type without parameters, lower-cased: {@code "Text/XML; charset=UTF-8"} gives {@code "text/xml"}. */
+    static String mediaType(String contentType) {
+        return contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
     }
 
     /*

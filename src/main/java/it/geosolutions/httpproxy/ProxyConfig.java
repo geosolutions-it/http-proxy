@@ -75,7 +75,7 @@ final class ProxyConfig {
      * A list of request header names (case-insensitive) that the proxy must NOT forward.
      * Headers in this set will always be removed, even if they appear in the whitelist.
      */
-    private Set<String> requestHeaderBlacklist = new HashSet<>();
+    private Set<String> requestHeaderBlacklist = Utils.toLowerCaseSet(Utils.parseWhiteList(DEFAULT_REQUEST_HEADER_BLACKLIST));
 
     /**
      * The servlet context
@@ -151,7 +151,7 @@ final class ProxyConfig {
             if (p != null)
                 this.setRequestHeaderWhitelist(Utils.toLowerCaseSet(p));
 
-            p = Utils.parseWhiteList(props.getProperty("requestHeaderBlacklist"));
+            p = Utils.parseWhiteList(props.getProperty("requestHeaderBlacklist", DEFAULT_REQUEST_HEADER_BLACKLIST));
             if (p != null)
                 this.setRequestHeaderBlacklist(Utils.toLowerCaseSet(p));
 
@@ -209,7 +209,7 @@ final class ProxyConfig {
                         : this.maxTotalConnections);
 
                 String def_conn_host = props.getProperty("default_max_connections_per_host");
-                this.setMaxTotalConnections(def_conn_host != null ? Integer.parseInt(def_conn_host)
+                this.setDefaultMaxConnectionsPerHost(def_conn_host != null ? Integer.parseInt(def_conn_host)
                         : this.defaultMaxConnectionsPerHost);
 
             } catch (NumberFormatException e) {
@@ -218,7 +218,7 @@ final class ProxyConfig {
                 this.setSoTimeout(this.soTimeout);
                 this.setConnectionTimeout(this.connectionTimeout);
                 this.setMaxTotalConnections(this.maxTotalConnections);
-                this.setMaxTotalConnections(this.defaultMaxConnectionsPerHost);
+                this.setDefaultMaxConnectionsPerHost(this.defaultMaxConnectionsPerHost);
                 this.setDefaultStreamByteSize(this.defaultStreamByteSize);
             }
         }
@@ -334,6 +334,72 @@ final class ProxyConfig {
      */
     public void setHostnameWhitelist(Set<String> hostnameWhitelist) {
         this.hostnameWhitelist = hostnameWhitelist;
+    }
+
+    /** Private destination exceptions, matched against the requested host and optional port. */
+    public Set<String> getAllowedPrivateHosts() {
+        Set<String> entries = Utils.parseWhiteList(
+                propertiesLoader().getProperty("allowedPrivateHosts"));
+        return entries != null ? entries : Set.of();
+    }
+
+    /** CIDR ranges that may be reached even when they are non-public. */
+    public Set<String> getAllowedPrivateNetworks() {
+        Set<String> entries = Utils.parseWhiteList(
+                propertiesLoader().getProperty("allowedPrivateNetworks"));
+        return entries != null ? entries : Set.of();
+    }
+
+    /**
+     * Whether the destination checks are switched off, so that non-public destinations can be
+     * reached as before 1.7. Defaults to false.
+     */
+    public boolean isAllowPrivateDestinations() {
+        return Boolean.parseBoolean(
+                propertiesLoader().getProperty("allowPrivateDestinations", "false").trim());
+    }
+
+    /**
+     * Whether the Content-Type of remote responses is checked against {@code mimetypeWhitelist}.
+     * Defaults to false: every proxied response is already served with a sandboxing
+     * Content-Security-Policy and nosniff, and many deployments rely on types their list does not
+     * name, because responses were not checked before.
+     */
+    public boolean isCheckResponseContentType() {
+        return Boolean.parseBoolean(
+                propertiesLoader().getProperty("checkResponseContentType", "false").trim());
+    }
+
+    /**
+     * Whether requests may be sent through the JVM outbound proxy ({@code http.proxyHost} /
+     * {@code https.proxyHost}) when one is configured. Defaults to true.
+     */
+    public boolean isAllowForwardProxy() {
+        return Boolean.parseBoolean(
+                propertiesLoader().getProperty("allowForwardProxy", "true").trim());
+    }
+
+    /**
+     * Response headers that are not copied from the remote host by default: each of them would
+     * change state the browser keeps for this application's origin.
+     */
+    /**
+     * Request headers never forwarded to the remote host unless {@code requestHeaderBlacklist} is
+     * set. The browser's cookies belong to this application, not to the hosts it proxies to.
+     */
+    static final String DEFAULT_REQUEST_HEADER_BLACKLIST = "Cookie";
+
+    static final String DEFAULT_RESPONSE_HEADER_BLACKLIST =
+            "Set-Cookie,Set-Cookie2,Clear-Site-Data,Strict-Transport-Security";
+
+    /**
+     * Remote response headers that are not passed back to the client, lower-cased. Defaults to
+     * {@link #DEFAULT_RESPONSE_HEADER_BLACKLIST}; an empty value passes every header through.
+     */
+    public Set<String> getResponseHeaderBlacklist() {
+        Set<String> entries = Utils.toLowerCaseSet(Utils.parseWhiteList(propertiesLoader()
+                .getProperty("responseHeaderBlacklist", DEFAULT_RESPONSE_HEADER_BLACKLIST)));
+        return entries != null ? entries : Set.of();
     }
 
     /**
@@ -472,7 +538,8 @@ final class ProxyConfig {
         Properties props = propertiesLoader();
 
         if (props != null) {
-            Set<String> set = Utils.parseWhiteList(props.getProperty("requestHeaderBlacklist"));
+            Set<String> set = Utils.parseWhiteList(
+                    props.getProperty("requestHeaderBlacklist", DEFAULT_REQUEST_HEADER_BLACKLIST));
             if (set != null)
                 this.setRequestHeaderBlacklist(Utils.toLowerCaseSet(set));
         }
