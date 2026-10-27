@@ -82,6 +82,7 @@ class HttpProxyTest {
         when(ctx.getInitParameter("proxyPropPath")).thenReturn(
                 f.getAbsolutePath());
         when(servletConfig.getServletContext()).thenReturn(ctx);
+        when(ctx.getContextPath()).thenReturn("/http-proxy");
 
         // setup base parameters
         parameters.put("url", new String[]{"http://sample.com/"});
@@ -123,7 +124,7 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
         // mock http response object
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
@@ -162,7 +163,6 @@ class HttpProxyTest {
         HttpServletRequest getRequest = mock(HttpServletRequest.class);
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(Collections.enumeration(headers));
-        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
 
         proxy.doGet(getRequest, getResponse);
@@ -205,7 +205,7 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
         when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
@@ -215,6 +215,76 @@ class HttpProxyTest {
         verify(getResponse).setStatus(307);
         verify(getResponse).setHeader(Utils.LOCATION_HEADER,
                 "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
+    }
+
+    /**
+     * The redirect back to the proxy uses the context path the application is deployed under, not
+     * the one the request reports, which follows what the client sent.
+     */
+    @Test
+    void testRedirectUsesConfiguredContextPath() throws Exception {
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getContextPath()).thenReturn("/http-proxy;jsessionid=0123");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
+
+        HttpServletResponse getResponse = redirectedGet(getRequest);
+
+        verify(getResponse).setStatus(302);
+        verify(getResponse).setHeader(Utils.LOCATION_HEADER,
+                "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
+    }
+
+    /** MapStore calls the proxy as ".../proxy/?url=", and the redirect keeps that form. */
+    @Test
+    void testRedirectKeepsTrailingSlashOfProxyPath() throws Exception {
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getServletPath()).thenReturn("/proxy");
+        when(getRequest.getPathInfo()).thenReturn("/");
+
+        HttpServletResponse getResponse = redirectedGet(getRequest);
+
+        verify(getResponse).setStatus(302);
+        verify(getResponse).setHeader(Utils.LOCATION_HEADER,
+                "/http-proxy/proxy/?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
+    }
+
+    /**
+     * Sends the request through the proxy while the remote host answers 302 and returns the
+     * response the proxy wrote.
+     */
+    private HttpServletResponse redirectedGet(HttpServletRequest getRequest) throws Exception {
+        final HttpGet mockGetMethod = mock(HttpGet.class);
+        when(mockGetMethod.getUri()).thenReturn(new URI("http://sample.com/"));
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(302);
+        fakeLocation = "http://newURL.com/";
+        when(response.getFirstHeader(Utils.LOCATION_HEADER))
+                .thenReturn(new BasicHeader("Location", fakeLocation));
+
+        mockHttpClient = mock(CloseableHttpClient.class);
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(2);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
+
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public HttpGet getGetMethod(URL url) {
+                return mockGetMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        when(getRequest.getParameterMap()).thenReturn(parameters);
+        when(getRequest.getHeaderNames()).thenReturn(Collections.enumeration(headers));
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+        when(getResponse.getOutputStream()).thenReturn(new StubServletOutputStream());
+
+        proxy.doGet(getRequest, getResponse);
+        return getResponse;
     }
 
     @Test

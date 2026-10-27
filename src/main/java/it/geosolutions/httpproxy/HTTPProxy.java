@@ -816,10 +816,19 @@ public class HTTPProxy extends HttpServlet {
                     } catch (URISyntaxException | IllegalArgumentException invalidLocation) {
                         throw new IOException("Invalid upstream redirect Location", invalidLocation);
                     }
+                    // Point the redirect back at this proxy with the context path the application is
+                    // deployed under: the request's own context path follows what the client sent
+                    // (Tomcat keeps path parameters in it). MapStore calls the proxy as
+                    // ".../proxy/?url=", so a trailing slash is kept; other path info is not used.
                     // A path-relative Location keeps the scheme and host the browser used, which a
                     // TLS front end hides from us, and the upstream status keeps 307/308 requests
                     // from being repeated as GET.
-                    String redirectURL = httpServletRequest.getRequestURI() + "?url="
+                    String selfPath = getServletContext().getContextPath()
+                            + httpServletRequest.getServletPath();
+                    if ("/".equals(httpServletRequest.getPathInfo())) {
+                        selfPath += "/";
+                    }
+                    String redirectURL = selfPath + "?url="
                             + URLEncoder.encode(absoluteLocation, StandardCharsets.UTF_8);
                     httpServletResponse.setStatus(statusCode);
                     httpServletResponse.setHeader(Utils.LOCATION_HEADER, redirectURL);

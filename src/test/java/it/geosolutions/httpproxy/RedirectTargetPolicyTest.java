@@ -37,6 +37,7 @@ class RedirectTargetPolicyTest {
         ServletContext context = mock(ServletContext.class);
         when(servletConfig.getServletContext()).thenReturn(context);
         when(context.getInitParameter("proxyPropPath")).thenReturn(properties.toString());
+        when(context.getContextPath()).thenReturn("");
         HTTPProxy proxy = new HTTPProxy();
         proxy.init(servletConfig);
         return proxy;
@@ -47,7 +48,8 @@ class RedirectTargetPolicyTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameterMap()).thenReturn(Map.of("url", new String[]{target}));
         when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getRequestURI()).thenReturn("/proxy/");
+        when(request.getServletPath()).thenReturn("/proxy");
+        when(request.getPathInfo()).thenReturn("/");
         when(response.getOutputStream()).thenReturn(new StubServletOutputStream());
         proxy.doGet(request, response);
         return response;
