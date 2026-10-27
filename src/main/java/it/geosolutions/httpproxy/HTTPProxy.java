@@ -816,16 +816,18 @@ public class HTTPProxy extends HttpServlet {
                     } catch (URISyntaxException | IllegalArgumentException invalidLocation) {
                         throw new IOException("Invalid upstream redirect Location", invalidLocation);
                     }
-                    // Build the self-referencing redirect from the servlet's own context and
-                    // servlet path, which the container has already normalized, rather than from
-                    // the raw request URI. A path-relative Location keeps the scheme and host the
-                    // browser used, which a TLS front end hides from us; the raw request URI can
-                    // be non-normalized (for example protocol-relative, starting with "//"), which
-                    // would point the browser off this host, while the parsed context and servlet
-                    // path always stay on it. The upstream status keeps 307/308 requests from
-                    // being repeated as GET.
-                    String selfPath = httpServletRequest.getContextPath()
+                    // Point the redirect back at this proxy with the context path the application is
+                    // deployed under: the request's own context path follows what the client sent
+                    // (Tomcat keeps path parameters in it). MapStore calls the proxy as
+                    // ".../proxy/?url=", so a trailing slash is kept; other path info is not used.
+                    // A path-relative Location keeps the scheme and host the browser used, which a
+                    // TLS front end hides from us, and the upstream status keeps 307/308 requests
+                    // from being repeated as GET.
+                    String selfPath = getServletContext().getContextPath()
                             + httpServletRequest.getServletPath();
+                    if ("/".equals(httpServletRequest.getPathInfo())) {
+                        selfPath += "/";
+                    }
                     String redirectURL = selfPath + "?url="
                             + URLEncoder.encode(absoluteLocation, StandardCharsets.UTF_8);
                     httpServletResponse.setStatus(statusCode);
