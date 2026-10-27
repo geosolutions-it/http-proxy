@@ -123,7 +123,8 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
+        when(getRequest.getContextPath()).thenReturn("/http-proxy");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
         // mock http response object
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
@@ -205,7 +206,8 @@ class HttpProxyTest {
         when(getRequest.getParameterMap()).thenReturn(parameters);
         when(getRequest.getHeaderNames()).thenReturn(
                 Collections.enumeration(headers));
-        when(getRequest.getRequestURI()).thenReturn("/http-proxy/proxy");
+        when(getRequest.getContextPath()).thenReturn("/http-proxy");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
         HttpServletResponse getResponse = mock(HttpServletResponse.class);
         final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
         when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
@@ -213,6 +215,61 @@ class HttpProxyTest {
         proxy.doGet(getRequest, getResponse);
         // 307 must reach the browser as 307, so that a POST is repeated as a POST
         verify(getResponse).setStatus(307);
+        verify(getResponse).setHeader(Utils.LOCATION_HEADER,
+                "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
+    }
+
+    /**
+     * The self-referencing redirect is built from the container-normalized context and servlet
+     * path, so it always stays a local path on this host regardless of the raw request URI the
+     * container reports.
+     */
+    @Test
+    void testRedirectUsesServletPathForSelfLocation() throws Exception {
+
+        final HttpGet mockGetMethod = mock(HttpGet.class);
+        when(mockGetMethod.getUri()).thenReturn(new URI("http://sample.com/"));
+        CloseableHttpResponse response = mock(CloseableHttpResponse.class);
+        when(response.getCode()).thenReturn(302);
+
+        mockHttpClient = mock(CloseableHttpClient.class);
+        doAnswer(invocation -> {
+            HttpClientResponseHandler<?> handler = invocation.getArgument(2);
+            return handler.handleResponse(response);
+        }).when(mockHttpClient).execute(eq(mockGetMethod), any(HttpContext.class), any(HttpClientResponseHandler.class));
+        fakeLocation = "http://newURL.com/";
+
+        when(response.getFirstHeader(Utils.LOCATION_HEADER))
+                .thenReturn(new BasicHeader("Location", fakeLocation));
+
+        proxy = new HTTPProxy() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public HttpGet getGetMethod(URL url) {
+                return mockGetMethod;
+            }
+        };
+        proxy.setHttpClient(mockHttpClient);
+        proxy.init(servletConfig);
+
+        HttpServletRequest getRequest = mock(HttpServletRequest.class);
+        when(getRequest.getParameterMap()).thenReturn(parameters);
+        when(getRequest.getHeaderNames()).thenReturn(
+                Collections.enumeration(headers));
+        when(getRequest.getContextPath()).thenReturn("/http-proxy");
+        when(getRequest.getServletPath()).thenReturn("/proxy");
+        // A raw request URI that is not a plain local path must not be echoed into the redirect.
+        when(getRequest.getRequestURI()).thenReturn("//example.org/http-proxy/proxy");
+        HttpServletResponse getResponse = mock(HttpServletResponse.class);
+        final StubServletOutputStream servletOutputStream = new StubServletOutputStream();
+        when(getResponse.getOutputStream()).thenReturn(servletOutputStream);
+
+        proxy.doGet(getRequest, getResponse);
+
+        // The Location comes from the context + servlet path, so it begins with a single "/"
+        // and points back at this proxy, not at the host in the raw request URI.
+        verify(getResponse).setStatus(302);
         verify(getResponse).setHeader(Utils.LOCATION_HEADER,
                 "/http-proxy/proxy?url=" + URLEncoder.encode(fakeLocation, "UTF-8"));
     }

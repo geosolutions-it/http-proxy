@@ -47,7 +47,8 @@ class RedirectTargetPolicyTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameterMap()).thenReturn(Map.of("url", new String[]{target}));
         when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getRequestURI()).thenReturn("/proxy/");
+        when(request.getContextPath()).thenReturn("");
+        when(request.getServletPath()).thenReturn("/proxy");
         when(response.getOutputStream()).thenReturn(new StubServletOutputStream());
         proxy.doGet(request, response);
         return response;
@@ -79,7 +80,7 @@ class RedirectTargetPolicyTest {
             HttpServletResponse redirect = fetch(proxy, "http://localhost:" + port + "/geostore/redirect");
             verify(redirect).setStatus(302);
             verify(redirect).setHeader("Location",
-                    "/proxy/?url=" + URLEncoder.encode(redirectTarget, StandardCharsets.UTF_8));
+                    "/proxy?url=" + URLEncoder.encode(redirectTarget, StandardCharsets.UTF_8));
 
             // The browser follows the Location with a new proxy request for the redirect target.
             HttpServletResponse followUp = fetch(proxy, redirectTarget);

@@ -77,7 +77,8 @@ class ForwardProxySecurityTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         when(request.getParameterMap()).thenReturn(Map.of("url", new String[]{target}));
         when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getRequestURI()).thenReturn("/proxy/");
+        when(request.getContextPath()).thenReturn("");
+        when(request.getServletPath()).thenReturn("/proxy");
         when(response.getOutputStream()).thenReturn(new StubServletOutputStream());
         proxy.doGet(request, response);
         return response;
